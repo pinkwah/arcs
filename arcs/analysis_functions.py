@@ -44,7 +44,7 @@ class Traversal:
         return(path)
     
     def generate_eqsystems_from_path(self,path,T,P):
-        charged_species = {'CO3H':-1,'NH4':+1,'NH2CO2':-1}
+        charged_species = {'CO3H':-1,'NH4':+1,'NH2CO2':-1} # this needs to be added to the arguments
         r_i = [i for i in path if isinstance(i,int)]
         rs = [self.reactions[T][P][i] for i in r_i]
         eqsystems = []
@@ -88,7 +88,7 @@ class Traversal:
                 concs[i+1] = fc
         return(concs,successful_equations)
     
-    def sample_graph(self,T,P,sample_length=100,path_depth=100):
+    def sample_graph_serial(self,T,P,sample_length=100,path_depth=100): # to be used when there are problems with sample_graph_mp
         total_data = {0:self.concs}
         s_equs = []
         with tqdm(total=sample_length*path_depth,disable=self.progress) as pbar:

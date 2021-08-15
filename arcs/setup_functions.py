@@ -12,6 +12,8 @@ from chempy import Reaction
 from chempy.equilibria import Equilibrium
 from tqdm import tqdm
 import networkx as nx
+from pathos.helpers import mp as pmp
+import math
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
@@ -256,22 +258,59 @@ class RemoveDuplicateReactions: # this needs checking
 
 class ApplyDataToReaction:
     
-    def __init__(self,trange,prange,reactions,compound_data):
+    def __init__(self,trange,prange,reactions,compound_data,nprocs):
         self.trange = trange
         self.prange = prange
         self.reactions = reactions
         self.compound_data = compound_data
+        self.nprocs = nprocs
         
-    def get_t_p_data(self,t,p):
-        reactions = {i:{'e':r,'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant()} 
+    def get_t_p_data(self,t,p): # serial
+        reactions = {i:{'e':r,
+            'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant()} 
                      for i,r in tqdm(enumerate(self.reactions))}
         return(reactions)
+
+    def get_t_p_data_mp(self,t,p):
+
+        manager = pmp.Manager()
+        queue = manager.Queue()
+        
+        def mp_function(reaction_keys,out_q):
+            data = {}
+            for r in reaction_keys:
+                data[r] = {'e':self.reactions[r],
+                        'k':ReactionGibbsandEquilibrium(self.reactions[r],t,p,self.compound_data).equilibrium_constant()}
+            out_q.put(data)
+
+        resultdict = {}
+        r_keys = list(self.reactions.keys())
+        chunksize = int(math.ceil(len(self.reactions)/float(self.nprocs)))
+        processes = []
+
+        for i in range(self.nprocs):
+            pr = pmp.Process(target=mp_function,
+                            args=(r_keys[chunksize*i:chunksize*(i+1)],queue))
+            processes.append(pr)
+            pr.start()
+
+        for i in range(self.nprocs):
+            resultdict.update(queue.get(timeout=1800))
+
+        for pr in processes:
+            pr.join()
+
+        return(resultdict)
         
     def as_dict(self):
         data = {}
-        #with tqdm(len(self.trange)*len(self.prange)*len(self.reactions)) as pbar:
-        for t in self.trange:
-                data[t] = {p:self.get_t_p_data(t,p) for p in self.prange}
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+            for t in self.trange:
+                pdat = {}
+                for p in self.prange:
+                    pdat[p] = self.get_t_p_data_mp(t,p)
+                    pbar.update(1)
+                data[t] = pdat
         return(data) 
 
         
