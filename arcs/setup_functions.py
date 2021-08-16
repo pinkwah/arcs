@@ -14,6 +14,7 @@ from tqdm import tqdm
 import networkx as nx
 from pathos.helpers import mp as pmp
 import math
+import copy
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
@@ -179,12 +180,14 @@ class ReactionsGenerator:
     def screen_combinations(self):
         screened = []
         for l in range(2,self.max_length+1):
-            for poss in tqdm(self.get_combinations(l)):
-                r,p = poss
-                try:
-                    screened.append(balance_stoichiometry(list(r),list(p)))
-                except:
-                    pass
+            with tqdm(total=len(self.get_combinations(l)),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+                for poss in self.get_combinations(l):
+                    r,p = poss
+                    pbar.update(1)
+                    try:
+                        screened.append(balance_stoichiometry(list(r),list(p)))
+                    except:
+                        pass
         return(screened)
        
     def get_reactions(self):
@@ -192,15 +195,15 @@ class ReactionsGenerator:
         for i in self.screen_combinations():
             r,p = i
             try:
-                substances = list(r) + list(p)
-                reactions.append(Equilibria(r,p))  
+                #substances = list(r) + list(p)
+                reactions.append(Equilibrium(r,p))  
             except:
                 pass
         return(reactions)
     
 class RemoveDuplicateReactions: # this needs checking
     def __init__(self,reactions,divisor):
-        self.reactions = reactions
+        self.reactions = copy.deepcopy(reactions)
         self.divisor = divisor
     
     def check_same(self,i,j):
@@ -237,21 +240,22 @@ class RemoveDuplicateReactions: # this needs checking
         return(self.reactions)
     
     def clean(self,split):
-        split_reactions = np.array_split(list(it.chain(*[self.reactions])),split)
+        splitted_reactions = np.array_split(list(it.chain(*[self.reactions])),split)
         cleaned = []
-        for r_split in split_reactions:
-            self.reactions = r_split.tolist()
+        for r_split in splitted_reactions:
+            self.reactions = copy.deepcopy(r_split.tolist()) # this should probably be multiprocessed
             d = self.iterate()
             cleaned.append(d)
-        return(cleaned)
-
+        return(list(it.chain(*cleaned)))
+    
     def whileclean(self):
-        for i in tqdm(range(self.divisor,0,-1)):        
+        for div in tqdm(range(self.divisor,0,-1)):        
+            print(div)
             finished = False
             while finished == False:
                 init = len(list(it.chain(*[self.reactions])))
-                self.reactions = self.clean(i)
-                final = len(list(it.chain(*self.reactions)))
+                self.reactions = self.clean(div)
+                final = len(list(it.chain(*[self.reactions])))
                 if init == final:
                     finished = True
         return(self.reactions)
