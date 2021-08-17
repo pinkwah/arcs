@@ -136,8 +136,8 @@ class Traversal:
         for p in procs:
             p.join()
             
-        queue.close()
-        queue.join_thread()
+        #queue.close()
+        #queue.join_thread()
             
             
         return(resultdict)
