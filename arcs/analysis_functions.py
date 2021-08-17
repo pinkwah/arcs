@@ -130,13 +130,14 @@ class Traversal:
             p.start() 
     
         for i in range(nprocs):
-            resultdict.update(queue.get(timeout=1800))
+            #resultdict.update(queue.get(timeout=1800))
+            resultdict.update(queue.get())
             
+        queue.close()
             
         for p in procs:
             p.join()
             
-        #queue.close()
         #queue.join_thread()
             
             
