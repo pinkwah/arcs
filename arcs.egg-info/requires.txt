@@ -1,0 +1,9 @@
+ase
+chempy
+datetime
+networkx
+numpy
+pathos
+pymatgen
+scipy
+tqdm
