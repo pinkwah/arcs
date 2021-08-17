@@ -131,26 +131,18 @@ class Traversal:
     
         for i in range(nprocs):
             #resultdict.update(queue.get(timeout=1800))
-<<<<<<< HEAD
             try:
                 resultdict.update(queue.get(block=True, timeout=1800))
             except queue.empty():
                 continue
             #resultdict.update(queue.get())
-=======
-            resultdict.update(queue.get())
->>>>>>> 216b2c73a86f669e764f37a3008faf0726169ec5
             
-        queue.close()
             
         for p in procs:
             p.join()
             
-<<<<<<< HEAD
         queue.close()
-=======
         #queue.join_thread()
->>>>>>> 216b2c73a86f669e764f37a3008faf0726169ec5
             
             
         return(resultdict)
