@@ -118,8 +118,8 @@ class Traversal:
             
             
         resultdict = {0:{'data':self.concs,'equation_statistics':[]}}
-        manager = pmp.Manager()
-        queue = manager.Queue()
+        #manager = pmp.Manager()
+        queue = pmp.Queue()
         total_samples = range(1,sample_length,1)
         chunksize = int(math.ceil(len(total_samples)/float(nprocs)))
         procs = []
@@ -132,8 +132,8 @@ class Traversal:
         for i in range(nprocs):
             #resultdict.update(queue.get(timeout=1800))
             try:
-                resultdict.update(queue.get(timeout=1800))
-            except queue.Empty:
+                resultdict.update(queue.get(block=True,timeout=3600))
+            except:
                 continue
             #resultdict.update(queue.get())
             
@@ -141,7 +141,7 @@ class Traversal:
         for p in procs:
             p.join()
             
-        queue.close()
+        #queue.close()
         #queue.join_thread()
             
             
