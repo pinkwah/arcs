@@ -1,0 +1,7 @@
+README.md
+setup.py
+arcs.egg-info/PKG-INFO
+arcs.egg-info/SOURCES.txt
+arcs.egg-info/dependency_links.txt
+arcs.egg-info/requires.txt
+arcs.egg-info/top_level.txt

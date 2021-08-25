@@ -354,7 +354,8 @@ class GraphGenerator:
     
     def multidigraph_from_t_and_p_range(self,trange,prange):
         graphs = {}
-        with tqdm(total=len(trange)*len(prange),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+        with tqdm(total=len(trange)*len(prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+            pbar.set_description('generating graph')
             for T in trange:
                 pdict = {}
                 for P in prange:
