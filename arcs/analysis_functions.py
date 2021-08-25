@@ -4,38 +4,42 @@ from chempy import Substance
 import copy
 import networkx as nx
 import itertools as it
+#from tqdm.notebook import tqdm
 from tqdm import tqdm
 from collections import defaultdict
-
 
 import os
 import warnings
 
-from multiprocessing import Process, Queue
+import pathos.multiprocessing as multiprocessing
+from pathos.pools import ProcessPool
+from pathos.pp import ParallelPool
+from pathos.serial import SerialPool
 from datetime import datetime
 import random
 import math
-import threading
-import multiprocessing
 import numpy as np
 import pandas as pd 
 from pathos.helpers import mp as pmp
 import queue
 
 class Traversal:
-    def __init__(self,graph,reactions,concs,**kwargs):
+    def __init__(self,graph,reactions,concs,trange,prange,**kwargs):
         self.graph = graph
         self.reactions = reactions
         self.concs = copy.deepcopy(concs)
-        self.progress = kwargs['progress']
+        #self.progress = kwargs['progress']
+        self.trange = trange
+        self.prange = prange
+        pass
         
     
-    def random_walk(self,T,P,depth=10):
+    def random_walk(self,T,P,path_depth=10):
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
         available = [a for a,i in self.concs.items() if i !=0]
         source = random.choice([n for n in nodes if n in available])
         path = []
-        for i in range(depth):
+        for i in range(path_depth):
             target = random.choice(nodes)
             p = nx.shortest_path(self.graph[T][P],source,target)
             source = target
@@ -83,69 +87,182 @@ class Traversal:
                     fc[eqsys.substance_names()[n]] = c
                     
                 concs[i+1] = fc
-                successful_equations.append(eqsys)
+                successful_equations.append(eqsys.string())
             except:
                 concs[i+1] = fc
         return(concs,successful_equations)
     
-    def sample_graph_serial(self,T,P,sample_length=100,path_depth=100): # to be used when there are problems with sample_graph_mp
-        total_data = {0:self.concs}
-        s_equs = []
-        with tqdm(total=sample_length*path_depth,disable=self.progress) as pbar:
-            for i in range(1,sample_length,1):
-                p = self.random_walk(T,P,path_depth)
-                walk = [] 
-                for path in p:
-                    walk.append(self.generate_eqsystems_from_path(path,T,P))
-                    pbar.update(1)    
-                da,eq = self.equilibrium_concentrations_from_walk(walk)
-                total_data[i] = da[len(da)-1]
-                s_equs.append(eq)
-        return(total_data,s_equs)
+    #def sample_graph_serial(self,T,P,sample_length=100,path_depth=100): # to be used when there are problems with sample_graph_mp
+        #total_data = {0:self.concs}
+        #s_equs = []
+        #with tqdm(total=sample_length*path_depth,disable=self.progress) as pbar:
+        #    for i in range(1,sample_length,1):
+        #        p = self.random_walk(T,P,path_depth)
+        #        walk = [] 
+        #        for path in p:
+        #            walk.append(self.generate_eqsystems_from_path(path,T,P))
+        #            pbar.update(1)    
+        #        da,eq = self.equilibrium_concentrations_from_walk(walk)
+        #        total_data[i] = da[len(da)-1]
+        #        s_equs.append(eq)
+        #return(total_data,s_equs)
     
-    def sample_graph_mp(self,T,P,sample_length=100,path_depth=100,nprocs=4):
-        
-        def mp_function(samples,out_q):
-            data = {}
+    def sampling_function_no_queue(self,samples,T,P,path_depth):
+        sample_data = {}
+        with tqdm(total=len(samples),bar_format='{desc:<20}|{bar:10}|',position=1,leave=False) as pbar2:
             for sample in samples:
-                p = self.random_walk(T,P,path_depth)
-                walk = []
-                for path in p:
-                    walk.append(self.generate_eqsystems_from_path(path,T,P))
-                da,eq = self.equilibrium_concentrations_from_walk(walk)
-                data[sample] = {'data':da[len(da)-1],'equation_statistics':eq}
-            out_q.put(data)
-            
-            
-        resultdict = {0:{'data':self.concs,'equation_statistics':[]}}
-        #manager = pmp.Manager()
-        queue = pmp.Queue(maxsize=nprocs)
-        total_samples = range(1,sample_length,1)
-        chunksize = int(math.ceil(len(total_samples)/float(nprocs)))
-        procs = []
-        for i in range(nprocs):
-            p = pmp.Process(target=mp_function,
-                        args=(total_samples[chunksize*i:chunksize*(i+1)],queue))
-            procs.append(p)
-            p.start() 
+                pbar2.set_description('Sample {}'.format(sample))
+                random_path = self.random_walk(T,P,path_depth)
+                walk = [self.generate_eqsystems_from_path(step,T,P) for step in random_path]
+                concs,equations = self.equilibrium_concentrations_from_walk(walk)
+                sample_data[sample] = {'data':concs[len(concs)-1],'equation_statistics':equations}
+                pbar2.update(1)
+            pbar2.reset()
+        return(sample_data)
     
-        for i in range(nprocs):
-            #resultdict.update(queue.get(timeout=1800))
-            try:
-                resultdict.update(queue.get(block=True,timeout=3600))
-            except:
-                continue
-            #resultdict.update(queue.get())
-            
-            
-        for p in procs:
-            p.join()
-            
-        queue.close()
-        #queue.join_thread()
-            
-            
-        return(resultdict)
+    def sampling_function_queue(self,samples,T,P,path_depth,out_q):
+        sample_data = {}
+        with tqdm(total=len(samples),bar_format='{desc:<20}|{bar:10}|',position=1,leave=False) as pbar2:
+            for sample in samples:
+                pbar2.set_description('Sample {}'.format(sample))
+                random_path = self.random_walk(T,P,path_depth)
+                walk = [self.generate_eqsystems_from_path(step,T,P) for step in random_path]
+                concs,equations = self.equilibrium_concentrations_from_walk(walk)
+                sample_data[sample] = {'data':concs[len(concs)-1],'equation_statistics':equations}
+                pbar2.update(1)
+            pbar2.reset()
+        out_q.put(sample_data)
+    
+    
+    def graph_sampling_serial(self,sample_length=100,path_depth=50):
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
+            temperature_data = {}
+            for T in trange:
+                pressure_data = {}
+                for P in prange:
+                    samples = list(range(0,sample_length,1))
+                    pbar1.set_description('T = {},P = {}'.format(T,P))
+                    pressure_data[P] = self.sampling_function_no_queue(samples,T,P,path_depth)
+                    pbar1.update(1)
+                temperature_data[T] = pressure_data
+        return(temperature_data)
+    
+    
+    def graph_sampling_pool_apply_async(self,sample_length=100,path_depth=50,nprocs=4):
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
+            temperature_data = {}
+            for T in trange:
+                pressure_data = {}
+                for P in prange:
+                    pbar1.set_description('T = {},P = {}'.format(T,P))
+                    samples = list(range(0,sample_length,1))
+                    data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
+                            for i in range(nprocs) 
+                            for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
+
+                    pool =  multiprocessing.Pool(nprocs)
+                    jobs = []
+                    for chunk in data_chunks:
+                        jobs.append(pool.apply_async(self.sampling_function_no_queue,args=(chunk,T,P,path_depth)))
+
+                    pressure_data[P] = [result.get() for result in jobs]
+                    pool.close()
+                    pbar1.update(1)
+                temperature_data[T] = pressure_data
+        return(temperature_data)
+    
+    def graph_sampling_pool_imap(self,sample_length=100,path_depth=50,nprocs=4):
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
+            temperature_data = {}
+            for T in trange:
+                pressure_data = {}
+                for P in prange:
+                    samples = list(range(0,sample_length,1))
+                    pool = multiprocessing.Pool(nprocs)
+                    pbar1.set_description('T = {},P = {}'.format(T,P))
+                    pressure_data[P]  = pool.imap(self.sampling_function_no_queue,(samples,T,P,path_depth))
+                    pbar1.update(1)
+                temperature_data[T] = pressure_data
+        return(temperature_data)
+    
+    def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4):
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
+            temperature_data = {}
+            for T in trange:
+                pressure_data = {}
+                for P in prange:
+                    pbar1.set_description('T = {},P = {}'.format(T,P))
+                    result_dict = {0:{'data':self.concs,'equation_statistics':[]}}
+                    out_queue = pmp.Queue()
+                    samples = list(range(0,sample_length,1))
+                    data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
+                            for i in range(nprocs) 
+                            for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
+                    jobs = []
+                    for chunk in data_chunks:
+                        process = pmp.Process(target=self.sampling_function_queue,
+                                    args=(chunk,T,P,path_depth,out_queue))
+                        jobs.append(process)
+                        process.start()
+
+
+                    for proc in jobs:
+                        result_dict.update(out_queue.get())
+
+                    for proc in jobs:
+                        proc.join()
+
+                    out_queue.close()
+
+                    pressure_data[P] = result_dict
+                    
+                    pbar1.update(1)
+                temperature_data[T] = pressure_data
+        return(temperature_data)
+    
+#    def sample_graph_mp(self,T,P,sample_length=100,path_depth=100,nprocs=4):
+#        
+#        def mp_function(samples,out_q):
+#            data = {}
+#            for sample in samples:
+#                p = self.random_walk(T,P,path_depth)
+#                walk = []
+#                for path in p:
+#                    walk.append(self.generate_eqsystems_from_path(path,T,P))
+#                da,eq = self.equilibrium_concentrations_from_walk(walk)
+#                data[sample] = {'data':da[len(da)-1],'equation_statistics':eq}
+#            out_q.put(data)
+#            
+#            
+#        resultdict = {0:{'data':self.concs,'equation_statistics':[]}}
+#        #manager = pmp.Manager()
+#        queue = pmp.Queue(maxsize=nprocs)
+#        total_samples = range(1,sample_length,1)
+#        chunksize = int(math.ceil(len(total_samples)/float(nprocs)))
+#        procs = []
+#        for i in range(nprocs):
+#            p = pmp.Process(target=mp_function,
+#                        args=(total_samples[chunksize*i:chunksize*(i+1)],queue))
+#            procs.append(p)
+#            p.start() 
+#    
+#        for i in range(nprocs):
+#            #resultdict.update(queue.get(timeout=1800))
+#            try:
+#                resultdict.update(queue.get(block=True,timeout=3600))
+#            except:
+#                continue
+#            #resultdict.update(queue.get())
+#            
+#            
+#        for p in procs:
+#            p.join()
+#            
+#        queue.close()
+#        #queue.join_thread()
+#            
+#            
+#        return(resultdict)
     
 def get_reaction_statistics(t_and_p_data):
     trange = list(t_and_p_data.keys()) #test
