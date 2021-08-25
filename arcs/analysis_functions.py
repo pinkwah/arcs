@@ -137,9 +137,9 @@ class Traversal:
     def graph_sampling_serial(self,sample_length=100,path_depth=50):
         with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
             temperature_data = {}
-            for T in trange:
+            for T in self.trange:
                 pressure_data = {}
-                for P in prange:
+                for P in self.prange:
                     samples = list(range(0,sample_length,1))
                     pbar1.set_description('T = {},P = {}'.format(T,P))
                     pressure_data[P] = self.sampling_function_no_queue(samples,T,P,path_depth)
@@ -151,9 +151,9 @@ class Traversal:
     def graph_sampling_pool_apply_async(self,sample_length=100,path_depth=50,nprocs=4):
         with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
             temperature_data = {}
-            for T in trange:
+            for T in self.trange:
                 pressure_data = {}
-                for P in prange:
+                for P in self.prange:
                     pbar1.set_description('T = {},P = {}'.format(T,P))
                     samples = list(range(0,sample_length,1))
                     data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
@@ -174,9 +174,9 @@ class Traversal:
     def graph_sampling_pool_imap(self,sample_length=100,path_depth=50,nprocs=4):
         with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
             temperature_data = {}
-            for T in trange:
+            for T in self.trange:
                 pressure_data = {}
-                for P in prange:
+                for P in self.prange:
                     samples = list(range(0,sample_length,1))
                     pool = multiprocessing.Pool(nprocs)
                     pbar1.set_description('T = {},P = {}'.format(T,P))
@@ -188,9 +188,9 @@ class Traversal:
     def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4):
         with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
             temperature_data = {}
-            for T in trange:
+            for T in self.trange:
                 pressure_data = {}
-                for P in prange:
+                for P in self.prange:
                     pbar1.set_description('T = {},P = {}'.format(T,P))
                     result_dict = {0:{'data':self.concs,'equation_statistics':[]}}
                     out_queue = pmp.Queue()
