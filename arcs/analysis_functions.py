@@ -92,6 +92,19 @@ class Traversal:
                 concs[i+1] = fc
         return(concs,successful_equations)
     
+    def graph_sampling_serial(self,sample_length=100,path_depth=50):
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
+            temperature_data = {}
+            for T in self.trange:
+                pressure_data = {}
+                for P in self.prange:
+                    samples = list(range(0,sample_length,1))
+                    pbar1.set_description('T = {},P = {}'.format(T,P))
+                    pressure_data[P] = self.sampling_function_no_queue(samples,T,P,path_depth)
+                    pbar1.update(1)
+                temperature_data[T] = pressure_data
+        return(temperature_data)
+    
     def sampling_function_no_queue(self,samples,T,P,path_depth):
         sample_data = {}
         with tqdm(total=len(samples),bar_format='{desc:<20}|{bar:10}|',position=1,leave=False) as pbar2:
@@ -109,7 +122,7 @@ class Traversal:
         sample_data = {}
         with tqdm(total=len(samples),bar_format='{desc:<20}|{bar:10}|',position=1,leave=False) as pbar2:
             for sample in samples:
-                pbar2.set_description('Sample {}'.format(sample))
+                pbar2.set_description('Samples'.format(sample))
                 random_path = self.random_walk(T,P,path_depth)
                 walk = [self.generate_eqsystems_from_path(step,T,P) for step in random_path]
                 concs,equations = self.equilibrium_concentrations_from_walk(walk)
@@ -117,58 +130,6 @@ class Traversal:
                 pbar2.update(1)
             pbar2.reset()
         out_q.put(sample_data)
-    
-    
-    def graph_sampling_serial(self,sample_length=100,path_depth=50):
-        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
-            temperature_data = {}
-            for T in self.trange:
-                pressure_data = {}
-                for P in self.prange:
-                    samples = list(range(0,sample_length,1))
-                    pbar1.set_description('T = {},P = {}'.format(T,P))
-                    pressure_data[P] = self.sampling_function_no_queue(samples,T,P,path_depth)
-                    pbar1.update(1)
-                temperature_data[T] = pressure_data
-        return(temperature_data)
-    
-    
-    def graph_sampling_pool_apply_async(self,sample_length=100,path_depth=50,nprocs=4):
-        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
-            temperature_data = {}
-            for T in self.trange:
-                pressure_data = {}
-                for P in self.prange:
-                    pbar1.set_description('T = {},P = {}'.format(T,P))
-                    samples = list(range(1,sample_length+1,1))
-                    data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
-                            for i in range(nprocs) 
-                            for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
-
-                    pool =  multiprocessing.Pool(nprocs)
-                    jobs = []
-                    for chunk in data_chunks:
-                        jobs.append(pool.apply_async(self.sampling_function_no_queue,args=(chunk,T,P,path_depth)))
-
-                    pressure_data[P] = [result.get() for result in jobs]
-                    pool.close()
-                    pbar1.update(1)
-                temperature_data[T] = pressure_data
-        return(temperature_data)
-    
-    def graph_sampling_pool_imap(self,sample_length=100,path_depth=50,nprocs=4):
-        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
-            temperature_data = {}
-            for T in self.trange:
-                pressure_data = {}
-                for P in self.prange:
-                    samples = list(range(0,sample_length,1))
-                    pool = multiprocessing.Pool(nprocs)
-                    pbar1.set_description('T = {},P = {}'.format(T,P))
-                    pressure_data[P]  = pool.imap(self.sampling_function_no_queue,(samples,T,P,path_depth))
-                    pbar1.update(1)
-                temperature_data[T] = pressure_data
-        return(temperature_data)
     
     def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4):
         init_concs = copy.deepcopy(self.concs)
@@ -180,7 +141,7 @@ class Traversal:
                     pbar1.set_description('T = {},P = {}'.format(T,P))
                     result_dict = {0:{'data':init_concs,'equation_statistics':[]}}
                     out_queue = pmp.Queue()
-                    samples = list(range(0,sample_length,1))
+                    samples = list(range(1,sample_length+1,1))
                     data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
                             for i in range(nprocs) 
                             for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
@@ -205,6 +166,44 @@ class Traversal:
                     pbar1.update(1)
                 temperature_data[T] = pressure_data
         return(temperature_data)
+    
+#    def graph_sampling_pool_apply_async(self,sample_length=100,path_depth=50,nprocs=4):
+#        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
+#            temperature_data = {}
+#            for T in self.trange:
+#                pressure_data = {}
+#                for P in self.prange:
+#                    pbar1.set_description('T = {},P = {}'.format(T,P))
+#                    samples = list(range(1,sample_length+1,1))
+#                    data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
+#                            for i in range(nprocs) 
+#                            for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
+#
+#                    pool =  multiprocessing.Pool(nprocs)
+#                    jobs = []
+#                    for chunk in data_chunks:
+#                        jobs.append(pool.apply_async(self.sampling_function_no_queue,args=(chunk,T,P,path_depth)))
+#
+#                    pressure_data[P] = [result.get() for result in jobs]
+#                    pool.close()
+#                    pbar1.update(1)
+#                temperature_data[T] = pressure_data
+#        return(temperature_data)
+#    
+#    def graph_sampling_pool_imap(self,sample_length=100,path_depth=50,nprocs=4):
+#        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
+#            temperature_data = {}
+#            for T in self.trange:
+#                pressure_data = {}
+#                for P in self.prange:
+#                    samples = list(range(0,sample_length,1))
+#                    pool = multiprocessing.Pool(nprocs)
+#                    pbar1.set_description('T = {},P = {}'.format(T,P))
+#                    pressure_data[P]  = pool.imap(self.sampling_function_no_queue,(samples,T,P,path_depth))
+#                    pbar1.update(1)
+#                temperature_data[T] = pressure_data
+#        return(temperature_data)
+    
     
 def get_reaction_statistics(t_and_p_data):
     trange = list(t_and_p_data.keys()) #test
