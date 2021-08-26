@@ -140,7 +140,7 @@ class Traversal:
                 pressure_data = {}
                 for P in self.prange:
                     pbar1.set_description('T = {},P = {}'.format(T,P))
-                    samples = list(range(0,sample_length,1))
+                    samples = list(range(1,sample_length+1,1))
                     data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
                             for i in range(nprocs) 
                             for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
@@ -171,13 +171,14 @@ class Traversal:
         return(temperature_data)
     
     def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4):
+        init_concs = copy.deepcopy(self.concs)
         with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
             temperature_data = {}
             for T in self.trange:
                 pressure_data = {}
                 for P in self.prange:
                     pbar1.set_description('T = {},P = {}'.format(T,P))
-                    result_dict = {0:{'data':self.concs,'equation_statistics':[]}}
+                    result_dict = {0:{'data':init_concs,'equation_statistics':[]}}
                     out_queue = pmp.Queue()
                     samples = list(range(0,sample_length,1))
                     data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
@@ -237,18 +238,31 @@ def get_reaction_statistics(t_and_p_data):
                           for T in trange}
     return(dict_of_dataframes)
 
-def get_mean_change_in_data(t_and_p_data):
-    data = {T:
-            {P:
-              {x:t_and_p_data[T][P][x]['data']
-               for x in t_and_p_data[T][P].keys()} 
-             for P in t_and_p_data[T].keys()} 
-            for T in t_and_p_data.keys()}
-    d = pd.DataFrame(data) 
-    mean_dataframe = pd.DataFrame({T:
-                                   {P:pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')
-                                    for P in d.index} 
-                                   for T in d.columns})
+def get_mean_change_in_data(t_and_p_data,percentage=True):
+    if not percentage == True:
+        data = {T:
+                {P:
+                  {x:t_and_p_data[T][P][x]['data']
+                   for x in t_and_p_data[T][P].keys()} 
+                 for P in t_and_p_data[T].keys()} 
+                for T in t_and_p_data.keys()}
+        d = pd.DataFrame(data) 
+        mean_dataframe = pd.DataFrame({T:
+                                       {P:pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')
+                                        for P in d.index} 
+                                       for T in d.columns})
+    else:
+        data = {T:
+                {P:
+                  {x:t_and_p_data[T][P][x]['data']
+                   for x in t_and_p_data[T][P].keys()}
+                 for P in t_and_p_data[T].keys()}
+                for T in t_and_p_data.keys()}
+        d = pd.DataFrame(data)
+        mean_dataframe = pd.DataFrame({T:
+                                       {P:((pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')) / pd.DataFrame(d[T][P])[0].drop('CO2'))*100
+                                        for P in d.index}
+                                       for T in d.columns})
     return(mean_dataframe)
     
 
