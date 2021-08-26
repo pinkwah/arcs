@@ -92,21 +92,6 @@ class Traversal:
                 concs[i+1] = fc
         return(concs,successful_equations)
     
-    #def sample_graph_serial(self,T,P,sample_length=100,path_depth=100): # to be used when there are problems with sample_graph_mp
-        #total_data = {0:self.concs}
-        #s_equs = []
-        #with tqdm(total=sample_length*path_depth,disable=self.progress) as pbar:
-        #    for i in range(1,sample_length,1):
-        #        p = self.random_walk(T,P,path_depth)
-        #        walk = [] 
-        #        for path in p:
-        #            walk.append(self.generate_eqsystems_from_path(path,T,P))
-        #            pbar.update(1)    
-        #        da,eq = self.equilibrium_concentrations_from_walk(walk)
-        #        total_data[i] = da[len(da)-1]
-        #        s_equs.append(eq)
-        #return(total_data,s_equs)
-    
     def sampling_function_no_queue(self,samples,T,P,path_depth):
         sample_data = {}
         with tqdm(total=len(samples),bar_format='{desc:<20}|{bar:10}|',position=1,leave=False) as pbar2:
@@ -220,50 +205,6 @@ class Traversal:
                 temperature_data[T] = pressure_data
         return(temperature_data)
     
-#    def sample_graph_mp(self,T,P,sample_length=100,path_depth=100,nprocs=4):
-#        
-#        def mp_function(samples,out_q):
-#            data = {}
-#            for sample in samples:
-#                p = self.random_walk(T,P,path_depth)
-#                walk = []
-#                for path in p:
-#                    walk.append(self.generate_eqsystems_from_path(path,T,P))
-#                da,eq = self.equilibrium_concentrations_from_walk(walk)
-#                data[sample] = {'data':da[len(da)-1],'equation_statistics':eq}
-#            out_q.put(data)
-#            
-#            
-#        resultdict = {0:{'data':self.concs,'equation_statistics':[]}}
-#        #manager = pmp.Manager()
-#        queue = pmp.Queue(maxsize=nprocs)
-#        total_samples = range(1,sample_length,1)
-#        chunksize = int(math.ceil(len(total_samples)/float(nprocs)))
-#        procs = []
-#        for i in range(nprocs):
-#            p = pmp.Process(target=mp_function,
-#                        args=(total_samples[chunksize*i:chunksize*(i+1)],queue))
-#            procs.append(p)
-#            p.start() 
-#    
-#        for i in range(nprocs):
-#            #resultdict.update(queue.get(timeout=1800))
-#            try:
-#                resultdict.update(queue.get(block=True,timeout=3600))
-#            except:
-#                continue
-#            #resultdict.update(queue.get())
-#            
-#            
-#        for p in procs:
-#            p.join()
-#            
-#        queue.close()
-#        #queue.join_thread()
-#            
-#            
-#        return(resultdict)
-    
 def get_reaction_statistics(t_and_p_data):
     trange = list(t_and_p_data.keys()) #test
     prange = list(t_and_p_data[trange[0]].keys())
@@ -282,7 +223,7 @@ def get_reaction_statistics(t_and_p_data):
         appearances = defaultdict(int)
         for sample in list_of_equations:
             for i in sample:
-                appearances[i.string()] += 1
+                appearances[i] += 1
     
         equation_statistics = {}
         for equation,frequency in appearances.items():
