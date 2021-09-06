@@ -34,7 +34,8 @@ class GetEnergyandVibrations:
             if 'y=' in line:
                 energy = float(line.split()[-1])
         if len(list(dict.fromkeys(self.atoms().get_atomic_numbers()))) == 1:
-            energy = energy / self.atoms().get_global_number_of_atoms()
+            if not any(x in self.atoms().symbols.get_chemical_formula() for x in ['H2','O2','N2']):
+                energy = energy / self.atoms().get_global_number_of_atoms()
     
         return(energy)
     
