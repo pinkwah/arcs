@@ -131,7 +131,7 @@ class Traversal:
             pbar2.reset()
         out_q.put(sample_data)
     
-    def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4):
+    def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4,random_path_depth=False):
         init_concs = copy.deepcopy(self.concs)
         with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
             temperature_data = {}
@@ -147,6 +147,8 @@ class Traversal:
                             for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
                     jobs = []
                     for chunk in data_chunks:
+                        if random_path_depth == True:
+                            path_depth = random.randint(1,100) #implementing a random function
                         process = pmp.Process(target=self.sampling_function_queue,
                                     args=(chunk,T,P,path_depth,out_queue))
                         jobs.append(process)

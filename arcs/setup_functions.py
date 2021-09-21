@@ -364,9 +364,3 @@ class GraphGenerator:
                     pbar.update(1)
                 graphs[T] = pdict
         return(graphs)
-                
-
-        
-        
-        
-          

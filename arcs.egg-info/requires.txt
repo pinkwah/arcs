@@ -1,9 +1,0 @@
-ase
-pymatgen
-scipy
-numpy
-chempy
-tqdm
-networkx
-pathos
-datetime
