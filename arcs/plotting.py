@@ -48,10 +48,12 @@ def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean
              data.append(str(charged_species[label]))
         label_names.append(separater.join(data))
     
-    ax.set_ylabel('$\Delta$ Concentrations (Arb. units)')    
+    ax.set_ylabel('$\Delta$ Concentrations (ppm/Arb. units)')    
     ax.set_xticklabels(label_names,rotation=80)
     ax.set_ylim(ymin,ymax)
     ax.set_yticks(np.linspace(ymin,ymax,5))
+    ppm_labels = ['{:.1F}'.format(x/1e-6) for x in ax.get_yticks()]
+    ax.set_yticklabels(ppm_labels)
     ax.axhline(0,color='k')
     rects = ax.patches
     percentages = []
@@ -98,5 +100,5 @@ def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean
         (0-rects[0].get_width(),-threshold),len(label_names),threshold*2,alpha=0.5,color='grey',edgecolor=None
     )
     ax.add_patch(threshold_rectangle)
-    legend_patch = patches.Patch(color='grey',alpha=0.5,label='detection threshold ({})'.format(threshold))
+    legend_patch = patches.Patch(color='grey',alpha=0.5,label='detection threshold ({:.1F} ppm)'.format(threshold/1e-6))
     plt.legend(handles=[legend_patch],frameon=False)
