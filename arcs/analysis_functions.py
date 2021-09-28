@@ -7,6 +7,7 @@ import itertools as it
 #from tqdm.notebook import tqdm
 from tqdm import tqdm
 from collections import defaultdict
+from numpy.random import choice
 
 import os
 import warnings
@@ -36,7 +37,13 @@ class Traversal:
     
     def random_walk(self,T,P,path_depth=10):
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        available = [a for a,i in self.concs.items() if i !=0]
+        #available = [a for a,i in self.concs.items() if i !=0] #previous random random
+        #source = random.choice([n for n in nodes if n in available])
+        temp_concs = copy.deepcopy(self.concs)
+        del temp_concs['CO2']
+        available = [choice(list(temp_concs.keys()),
+                len(temp_concs),
+                p=[x/sum(temp_concs.values()) for x in temp_concs.values()])[0]]
         source = random.choice([n for n in nodes if n in available])
         path = []
         for i in range(path_depth):
@@ -45,7 +52,7 @@ class Traversal:
             source = target
             if not len(p) == 1:
                 path.append(p)
-        return(path)
+        return(path)   
     
     def generate_eqsystems_from_path(self,path,T,P):
         charged_species = {'CO3H':-1,'NH4':+1,'NH2CO2':-1} # this needs to be added to the arguments
