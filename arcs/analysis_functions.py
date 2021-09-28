@@ -176,43 +176,6 @@ class Traversal:
                 temperature_data[T] = pressure_data
         return(temperature_data)
     
-#    def graph_sampling_pool_apply_async(self,sample_length=100,path_depth=50,nprocs=4):
-#        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
-#            temperature_data = {}
-#            for T in self.trange:
-#                pressure_data = {}
-#                for P in self.prange:
-#                    pbar1.set_description('T = {},P = {}'.format(T,P))
-#                    samples = list(range(1,sample_length+1,1))
-#                    data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
-#                            for i in range(nprocs) 
-#                            for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
-#
-#                    pool =  multiprocessing.Pool(nprocs)
-#                    jobs = []
-#                    for chunk in data_chunks:
-#                        jobs.append(pool.apply_async(self.sampling_function_no_queue,args=(chunk,T,P,path_depth)))
-#
-#                    pressure_data[P] = [result.get() for result in jobs]
-#                    pool.close()
-#                    pbar1.update(1)
-#                temperature_data[T] = pressure_data
-#        return(temperature_data)
-#    
-#    def graph_sampling_pool_imap(self,sample_length=100,path_depth=50,nprocs=4):
-#        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
-#            temperature_data = {}
-#            for T in self.trange:
-#                pressure_data = {}
-#                for P in self.prange:
-#                    samples = list(range(0,sample_length,1))
-#                    pool = multiprocessing.Pool(nprocs)
-#                    pbar1.set_description('T = {},P = {}'.format(T,P))
-#                    pressure_data[P]  = pool.imap(self.sampling_function_no_queue,(samples,T,P,path_depth))
-#                    pbar1.update(1)
-#                temperature_data[T] = pressure_data
-#        return(temperature_data)
-    
     
 def get_reaction_statistics(t_and_p_data):
     trange = list(t_and_p_data.keys()) #test

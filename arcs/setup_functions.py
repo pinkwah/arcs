@@ -262,6 +262,7 @@ class RemoveDuplicateReactions: # this needs checking
         return(self.reactions)
 
 class ApplyDataToReaction:
+    ''' this class applies the gibbs data to a specific reaction'''
     
     def __init__(self,trange,prange,reactions,compound_data,nprocs):
         self.trange = trange
@@ -270,22 +271,26 @@ class ApplyDataToReaction:
         self.compound_data = compound_data
         self.nprocs = nprocs
         
-    def get_t_p_data(self,t,p): # serial
+    def get_t_p_data(self,t,p): #serial
         reactions = {i:{'e':r,
-            'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant()} 
+            'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant(),
+            'g':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).reaction_energy()} 
                      for i,r in tqdm(enumerate(self.reactions))}
         return(reactions)
 
-    def get_t_p_data_mp(self,t,p):
+    def get_t_p_data_mp(self,t,p): #multiprocessed
 
         manager = pmp.Manager()
         queue = manager.Queue()
         
         def mp_function(reaction_keys,out_q):
+
             data = {}
             for r in reaction_keys:
+                rge = ReactionGibbsandEquilibrium(self.reactions[r],t,p,self.compound_data)
                 data[r] = {'e':self.reactions[r],
-                        'k':ReactionGibbsandEquilibrium(self.reactions[r],t,p,self.compound_data).equilibrium_constant()}
+                        'k':rge.equilibrium_constant(),
+                        'g':rge.reaction_energy()}
             out_q.put(data)
 
         resultdict = {}
@@ -323,7 +328,31 @@ class GraphGenerator:
     
     def __init__(self,preloaded_data):
         self.preloaded_data = preloaded_data
-    
+
+    def _cost_function(gibbs,T):
+        '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf'''
+        return(np.log(1+(273/T)*np.exp(gibbs)))
+
+    def multidigraph_cost(self,T,P):
+        ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
+        t = nx.MultiDiGraph(directed=True)
+        for i,reac in self.preloaded_data[T][P].items():
+            if reac['g'] <= 0:
+                # if the gibbs reaction is towards reactants
+                cost = _cost_function(reac,T)
+                r = list(reac['e'].reac)
+                p = list(reac['e'].prod)
+                t.add_weighted_edges_from([c,i,cost] for c in r)
+                t.add_weighted_edges_from([i,c,k] for c in r)
+                t.add_weighted_edges_from([i,c,1/k] for c in p)
+                t.add_weighted_edges_from([c,i,k] for c in p)
+            elif k >= 1: #favours products
+                t.add_weighted_edges_from([c,i,1/k] for c in r)
+                t.add_weighted_edges_from([i,c,k] for c in r)
+                t.add_weighted_edges_from([i,c,1/k] for c in p)
+                t.add_weighted_edges_from([c,i,k] for c in p)
+        return(t) #need to check shortest pathways
+
     def multidigraph(self,T,P):
         t = nx.MultiDiGraph(directed=True)
         for i,reac in self.preloaded_data[T][P].items():
