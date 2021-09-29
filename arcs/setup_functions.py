@@ -4,6 +4,7 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from ase.thermochemistry import IdealGasThermo
 from scipy.constants import Boltzmann, e
+from monty.serialization import loadfn
 import numpy as np 
 import itertools as it
 import numpy as np 
@@ -329,7 +330,7 @@ class GraphGenerator:
     def __init__(self,preloaded_data):
         self.preloaded_data = preloaded_data
 
-    def _cost_function(gibbs,T):
+    def _cost_function(self,gibbs,T):
         '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf'''
         return(np.log(1+(273/T)*np.exp(gibbs)))
 
@@ -337,8 +338,8 @@ class GraphGenerator:
         ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
         t = nx.MultiDiGraph(directed=True)
         for i,reac in self.preloaded_data[T][P].items():
-            f_cost = _cost_function(reac['g'],T) #forward cost
-            b_cost = _cost_function(-reac['g'],T) #backward cost
+            f_cost = self._cost_function(reac['g'],T) #forward cost
+            b_cost = self._cost_function(-reac['g'],T) #backward cost
             r = list(reac['e'].reac)
             p = list(reac['e'].prod)
             t.add_weighted_edges_from([c,i,f_cost] for c in r) #reactants -> reaction
@@ -389,3 +390,44 @@ class GraphGenerator:
                     pbar.update(1)
                 graphs[T] = pdict
         return(graphs)
+
+class GenerateInitialConcentrations:
+
+    def __init__(self,graph,T,P):
+        self.graph = graph
+        self.T = T
+        self.P = P
+
+    def all_random(self):
+        compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
+        ic = {c:np.random.random()/1e6 for c in compounds}
+        ic['CO2'] = 1
+        return(ic)
+
+    def specific_random(self,compounds=None):
+        full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
+        ic = {}
+        for c in full_list:
+            if c  in self.compounds:
+                ic[c] = np.random.random()/1e6
+            else:
+                ic[c] = 0 
+        ic['CO2'] = 1
+        return(ic)
+
+    def from_file(self,file_name):
+        nodes = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
+        file_concentrations = loadfn(file_name)
+        loaded_compounds = list(file_concentrations.keys())
+        ic = {}
+        for c in nodes:
+            if c not in loaded_compounds:
+                ic[c] = 0
+            else:
+                ic[c] = file_concentrations[c]
+        ic['CO2'] = 1
+        return(ic)
+
+
+
+
