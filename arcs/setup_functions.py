@@ -337,21 +337,15 @@ class GraphGenerator:
         ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
         t = nx.MultiDiGraph(directed=True)
         for i,reac in self.preloaded_data[T][P].items():
-            if reac['g'] <= 0:
-                # if the gibbs reaction is towards reactants
-                cost = _cost_function(reac,T)
-                r = list(reac['e'].reac)
-                p = list(reac['e'].prod)
-                t.add_weighted_edges_from([c,i,cost] for c in r)
-                t.add_weighted_edges_from([i,c,k] for c in r)
-                t.add_weighted_edges_from([i,c,1/k] for c in p)
-                t.add_weighted_edges_from([c,i,k] for c in p)
-            elif k >= 1: #favours products
-                t.add_weighted_edges_from([c,i,1/k] for c in r)
-                t.add_weighted_edges_from([i,c,k] for c in r)
-                t.add_weighted_edges_from([i,c,1/k] for c in p)
-                t.add_weighted_edges_from([c,i,k] for c in p)
-        return(t) #need to check shortest pathways
+            f_cost = _cost_function(reac['g'],T) #forward cost
+            b_cost = _cost_function(-reac['g'],T) #backward cost
+            r = list(reac['e'].reac)
+            p = list(reac['e'].prod)
+            t.add_weighted_edges_from([c,i,f_cost] for c in r) #reactants -> reaction
+            t.add_weighted_edges_from([i,c,b_cost] for c in r) #reaction -> reactants
+            t.add_weighted_edges_from([i,c,f_cost] for c in p) #reaction -> products
+            t.add_weighted_edges_from([c,i,b_cost] for c in p) #products -> reaction
+        return(t) #probably don't need something that has if and elif
 
     def multidigraph(self,T,P):
         t = nx.MultiDiGraph(directed=True)
@@ -371,16 +365,6 @@ class GraphGenerator:
                 t.add_weighted_edges_from([c,i,k] for c in p)
         return(t) #need to check shortest pathways
     
-    def multigraph(self,T,P):
-        t = nx.MultiGraph()
-        for i,reac in self.preloaded_data[T][{}].items():
-            r = list(reac['e'].reac)
-            p = list(reac['e'].prod)
-            t.add_edges_from([c,i] for c in r)
-            t.add_edges_from([i,c] for c in r)
-            t.add_edges_from([c,i] for c in p)
-            t.add_edges_from([i,c] for c in p)
-        return(t)
     
     def multidigraph_from_t_and_p_range(self,trange,prange):
         graphs = {}
@@ -390,6 +374,18 @@ class GraphGenerator:
                 pdict = {}
                 for P in prange:
                     pdict[P] = self.multidigraph(T,P)
+                    pbar.update(1)
+                graphs[T] = pdict
+        return(graphs)
+
+    def multidigraph_from_t_and_p_range_cost(self,trange,prange):
+        graphs = {}
+        with tqdm(total=len(trange)*len(prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+            pbar.set_description('generating graph')
+            for T in trange:
+                pdict = {}
+                for P in prange:
+                    pdict[P] = self.multidigraph_cost(T,P)
                     pbar.update(1)
                 graphs[T] = pdict
         return(graphs)
