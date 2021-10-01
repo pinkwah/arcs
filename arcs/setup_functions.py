@@ -11,6 +11,7 @@ import numpy as np
 from chempy import balance_stoichiometry
 from chempy import Reaction
 from chempy.equilibria import Equilibrium
+from chempy.reactionsystem import Substance
 from tqdm import tqdm
 import networkx as nx
 from pathos.helpers import mp as pmp
