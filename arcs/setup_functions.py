@@ -252,7 +252,6 @@ class RemoveDuplicateReactions: # this needs checking
     
     def whileclean(self):
         for div in tqdm(range(self.divisor,0,-1)):        
-            print(div)
             finished = False
             while finished == False:
                 init = len(list(it.chain(*[self.reactions])))
@@ -330,16 +329,26 @@ class GraphGenerator:
     def __init__(self,preloaded_data):
         self.preloaded_data = preloaded_data
 
-    def _cost_function(self,gibbs,T):
+    def _cost_function(self,gibbs,T,reactants):
         '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf'''
-        return(np.log(1+(273/T)*np.exp(gibbs)))
+
+        comps = []
+        for r,n in reactants.items():
+            for i in range(n):
+                comps.append(r)
+
+        num_atoms = np.sum([np.sum([y 
+                             for x,y in Substance.from_formula(c).composition.items()]) 
+                     for c in comps]) 
+
+        return(np.log(1+(273/T)*np.exp(gibbs/num_atoms)))
 
     def multidigraph_cost(self,T,P):
         ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
         t = nx.MultiDiGraph(directed=True)
         for i,reac in self.preloaded_data[T][P].items():
-            f_cost = self._cost_function(reac['g'],T) #forward cost
-            b_cost = self._cost_function(-reac['g'],T) #backward cost
+            f_cost = self._cost_function(reac['g'],T,reac['e'].reac) #forward cost
+            b_cost = self._cost_function(-reac['g'],T,reac['e'].prod) #backward cost
             r = list(reac['e'].reac)
             p = list(reac['e'].prod)
             t.add_weighted_edges_from([c,i,f_cost] for c in r) #reactants -> reaction
