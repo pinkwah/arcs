@@ -342,7 +342,7 @@ class GraphGenerator:
                              for x,y in Substance.from_formula(c).composition.items()]) 
                      for c in comps]) 
 
-        return(np.log(1+(273/T)*np.exp(gibbs/num_atoms)))
+        return(np.log(1+(273/T)*np.exp(gibbs/num_atoms/1)))
 
     def multidigraph_cost(self,T,P):
         ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
