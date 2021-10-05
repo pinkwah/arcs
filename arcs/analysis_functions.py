@@ -204,9 +204,13 @@ def get_reaction_statistics(t_and_p_data):
         d = pd.DataFrame(equation_statistics).T.sort_values(by='frequency',ascending=False)
         return(d)
 
-    dict_of_dataframes = {T:{P:get_dataframes(equations[T][P]) 
+    try:
+        dict_of_dataframes = {T:{P:get_dataframes(equations[T][P]) 
                              for P in prange} 
                           for T in trange}
+    except:
+        dict_of_dataframes = {T:{P:[] for P in prange}
+                              for T in trange}
     return(dict_of_dataframes)
 
 def get_mean_change_in_data(t_and_p_data,percentage=True):
