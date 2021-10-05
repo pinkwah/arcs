@@ -17,16 +17,17 @@ import networkx as nx
 from pathos.helpers import mp as pmp
 import math
 import copy
-
+import warnings
 
 class ReactionsGenerator:
     ''' once you have used this it is highly recommended that you  run class RemoveDuplicateReactions'''
     
-    def __init__(self,compounds,max_length):
+    def __init__(self,compounds,max_length=5):
         self.compounds = compounds
         self.max_length = max_length
+        if max_length < 2:
+            raise ValueError('supplied max_length is too low. max_length should be >= 2')
     
-
     def _get_combinations(self,length):
         combinations = []
         init = list(it.permutations(self.compounds,length))
