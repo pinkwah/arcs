@@ -34,11 +34,66 @@ class Traversal:
         self.prange = prange
         pass
         
-    
+    def _get_weighted_random_compound(self,T,P,co2=False,force_selection=None):     # doesnt' include looping
+
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        temp_concs = copy.deepcopy(self.concs)            
+
+        if not force_selection == None:
+            new_temp_concs = {}
+            force_selection = force_selection + ['CO2']
+            for c in temp_concs:
+                if c in force_selection:
+                    new_temp_concs[c] = temp_concs[c]
+
+            temp_concs = new_temp_concs
+
+        if co2 == False:
+            del temp_concs['CO2']
+            
+        available = [choice(list(temp_concs.keys()),
+                len(temp_concs),
+                p=[x/sum(temp_concs.values()) for x in temp_concs.values()])[0]]
+
+        source = random.choice([n for n in nodes if n in available])
+        return(source)
+
+    def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct == True:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
+
+    def _random_choice_connected(self,T,P,force_direct=False,previous_index=None,co2=False): # this will be joined - I think we can also make a ranking of potential reactions based upon components in the stream as well 
+        if previous_index == None:
+            raise ValueError('no previous compound selected')
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct == True:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=present)
+                target = random.choice(nodes) # the next path will be random 
+                p = nx.shortest_path(self.graph[T][P],source,target)
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
+
+
     def random_walk(self,T,P,path_depth=10):
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        #available = [a for a,i in self.concs.items() if i !=0] #previous random random
-        #source = random.choice([n for n in nodes if n in available])
         temp_concs = copy.deepcopy(self.concs)
         del temp_concs['CO2']
         available = [choice(list(temp_concs.keys()),
@@ -175,135 +230,4 @@ class Traversal:
                     pbar1.update(1)
                 temperature_data[T] = pressure_data
         return(temperature_data)
-    
-    
-def get_reaction_statistics(t_and_p_data):
-    trange = list(t_and_p_data.keys()) #test
-    prange = list(t_and_p_data[trange[0]].keys())
-    equations = {}
-    for T in trange:
-        eqs_p  = {}
-        for P in prange:
-            eqs = []
-            for x in t_and_p_data[T][P].keys():
-                if t_and_p_data[T][P][x]['equation_statistics']:
-                    eqs.append(t_and_p_data[T][P][x]['equation_statistics'])
-            eqs_p[P] = eqs
-        equations[T] = eqs_p
-    
-    def get_dataframes(list_of_equations):
-        appearances = defaultdict(int)
-        for sample in list_of_equations:
-            for i in sample:
-                appearances[i] += 1
-    
-        equation_statistics = {}
-        for equation,frequency in appearances.items():
-            eq,k = equation.split(';')
-            equation_statistics[eq] = {'k':k.split('\n')[0],'frequency':frequency}
-        d = pd.DataFrame(equation_statistics).T.sort_values(by='frequency',ascending=False)
-        return(d)
-
-    try:
-        dict_of_dataframes = {T:{P:get_dataframes(equations[T][P]) 
-                             for P in prange} 
-                          for T in trange}
-    except:
-        dict_of_dataframes = {T:{P:[] for P in prange}
-                              for T in trange}
-    return(dict_of_dataframes)
-
-def get_mean_change_in_data(t_and_p_data,percentage=True):
-    if not percentage == True:
-        data = {T:
-                {P:
-                  {x:t_and_p_data[T][P][x]['data']
-                   for x in t_and_p_data[T][P].keys()} 
-                 for P in t_and_p_data[T].keys()} 
-                for T in t_and_p_data.keys()}
-        d = pd.DataFrame(data) 
-        mean_dataframe = pd.DataFrame({T:
-                                       {P:pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')
-                                        for P in d.index} 
-                                       for T in d.columns})
-    else:
-        data = {T:
-                {P:
-                  {x:t_and_p_data[T][P][x]['data']
-                   for x in t_and_p_data[T][P].keys()}
-                 for P in t_and_p_data[T].keys()}
-                for T in t_and_p_data.keys()}
-        d = pd.DataFrame(data)
-        mean_dataframe = pd.DataFrame({T:
-                                       {P:((pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')) / pd.DataFrame(d[T][P])[0].drop('CO2'))*100
-                                        for P in d.index}
-                                       for T in d.columns})
-    return(mean_dataframe)
-    
-
-class PrettyPlot:
-    
-    def __init__(self,graph,concs,path,index,directory):
-        self.graph = graph
-        self.concs = concs
-        self.path = path
-        self.index = index
-        self.directory = directory
-        
-        
-    def make_options(self,p):
-        node_sizes = [1 if isinstance(n,str) else 0 for n in self.graph.nodes()]
-        node_colours = []
-        alphas = []
-        for n in self.graph.nodes:
-             if isinstance(n,str):
-                    if n in list(self.concs.keys()):
-                        node_colours.append((0.8,0.0,0.0))
-                        alphas.append(1.0)
-                    else:
-                        node_colours.append((0.6,0.4,0.9))
-                        alphas.append(0.5)
-             else:
-                 node_colours.append((0.0,0.4,0.8))
-                 alphas.append(0.2)
-            
-        node_options = {'node_color': node_colours,
-                   'alpha': alphas,
-                   'node_size': node_sizes}
-        
-        edge_colours = []
-        for e in self.graph.edges:
-            if p[0] == e[0] and p[1] == e[1]:
-                edge_colours.append((0.9,0.0,0.0,1.0))
-            else:
-                edge_colours.append((0.2,np.random.random(),np.random.random(),0.1))
-        
-        edge_options = {'connectionstyle':'arc3,rad=0.9',
-                        'width':1,
-                       'edge_color':edge_colours}
-        
-        return([node_options,edge_options])
-    
-    def make_directory(self):
-        np = os.path.join(self.directory,str(self.index))
-        try:
-            os.mkdir(np)  
-        except:
-            pass
-        return(np)
-        
-    def plot_graph(self):
-        np = self.make_directory()
-        for i,pt in enumerate(self.path):
-            node_options,edge_options = self.make_options(pt)        
-            fig,ax = plt.subplots(figsize=(20,20),dpi=100)
-            pos = nx.kamada_kawai_layout(self.graph)
-            n = nx.draw_networkx_nodes(self.graph,pos,ax=ax,
-                                       node_color=node_options['node_color'],
-                                       alpha=node_options['alpha'],
-                                      node_size=node_options['node_size'])
-            e = nx.draw_networkx_edges(self.graph,pos,ax=ax,**edge_options)
-            ax.set_facecolor((0.1, 0.1, 0.1))
-            f = os.path.join(np,'nl_{}_{}.png'.format(self.index,i))
-            plt.savefig(f,transparent=False)        
             

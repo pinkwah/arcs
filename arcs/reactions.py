@@ -62,7 +62,7 @@ class ReactionsGenerator:
         return(reactions)
 
 
-    def _screen_combinations_write(self,filename): # this is test - should be more memory efficient to write to an outfile then load later
+    def _screen_combinations_write(self,filename): #this is test - should be more memory efficient to write to an outfile then load later
         with open('{}'.format(filename),'w') as outfile:
             for l in range(2,self.max_length+1):
                 with tqdm(total=len(self._get_combinations(l)),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
