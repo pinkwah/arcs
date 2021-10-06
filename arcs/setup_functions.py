@@ -4,12 +4,14 @@ from pymatgen.io.ase import AseAtomsAdaptor
 from pymatgen.symmetry.analyzer import PointGroupAnalyzer
 from ase.thermochemistry import IdealGasThermo
 from scipy.constants import Boltzmann, e
+from monty.serialization import loadfn
 import numpy as np 
 import itertools as it
 import numpy as np 
 from chempy import balance_stoichiometry
 from chempy import Reaction
 from chempy.equilibria import Equilibrium
+from chempy.reactionsystem import Substance
 from tqdm import tqdm
 import networkx as nx
 from pathos.helpers import mp as pmp
@@ -251,7 +253,6 @@ class RemoveDuplicateReactions: # this needs checking
     
     def whileclean(self):
         for div in tqdm(range(self.divisor,0,-1)):        
-            print(div)
             finished = False
             while finished == False:
                 init = len(list(it.chain(*[self.reactions])))
@@ -262,6 +263,7 @@ class RemoveDuplicateReactions: # this needs checking
         return(self.reactions)
 
 class ApplyDataToReaction:
+    ''' this class applies the gibbs data to a specific reaction'''
     
     def __init__(self,trange,prange,reactions,compound_data,nprocs):
         self.trange = trange
@@ -270,22 +272,26 @@ class ApplyDataToReaction:
         self.compound_data = compound_data
         self.nprocs = nprocs
         
-    def get_t_p_data(self,t,p): # serial
+    def get_t_p_data(self,t,p): #serial
         reactions = {i:{'e':r,
-            'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant()} 
+            'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant(),
+            'g':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).reaction_energy()} 
                      for i,r in tqdm(enumerate(self.reactions))}
         return(reactions)
 
-    def get_t_p_data_mp(self,t,p):
+    def get_t_p_data_mp(self,t,p): #multiprocessed
 
         manager = pmp.Manager()
         queue = manager.Queue()
         
         def mp_function(reaction_keys,out_q):
+
             data = {}
             for r in reaction_keys:
+                rge = ReactionGibbsandEquilibrium(self.reactions[r],t,p,self.compound_data)
                 data[r] = {'e':self.reactions[r],
-                        'k':ReactionGibbsandEquilibrium(self.reactions[r],t,p,self.compound_data).equilibrium_constant()}
+                        'k':rge.equilibrium_constant(),
+                        'g':rge.reaction_energy()}
             out_q.put(data)
 
         resultdict = {}
@@ -323,7 +329,35 @@ class GraphGenerator:
     
     def __init__(self,preloaded_data):
         self.preloaded_data = preloaded_data
-    
+
+    def _cost_function(self,gibbs,T,reactants):
+        '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf'''
+
+        comps = []
+        for r,n in reactants.items():
+            for i in range(n):
+                comps.append(r)
+
+        num_atoms = np.sum([np.sum([y 
+                             for x,y in Substance.from_formula(c).composition.items()]) 
+                     for c in comps]) 
+
+        return(np.log(1+(273/T)*np.exp(gibbs/num_atoms/1)))
+
+    def multidigraph_cost(self,T,P):
+        ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
+        t = nx.MultiDiGraph(directed=True)
+        for i,reac in self.preloaded_data[T][P].items():
+            f_cost = self._cost_function(reac['g'],T,reac['e'].reac) #forward cost
+            b_cost = self._cost_function(-reac['g'],T,reac['e'].prod) #backward cost
+            r = list(reac['e'].reac)
+            p = list(reac['e'].prod)
+            t.add_weighted_edges_from([c,i,f_cost] for c in r) #reactants -> reaction
+            t.add_weighted_edges_from([i,c,b_cost] for c in r) #reaction -> reactants
+            t.add_weighted_edges_from([i,c,f_cost] for c in p) #reaction -> products
+            t.add_weighted_edges_from([c,i,b_cost] for c in p) #products -> reaction
+        return(t) #probably don't need something that has if and elif
+
     def multidigraph(self,T,P):
         t = nx.MultiDiGraph(directed=True)
         for i,reac in self.preloaded_data[T][P].items():
@@ -342,16 +376,6 @@ class GraphGenerator:
                 t.add_weighted_edges_from([c,i,k] for c in p)
         return(t) #need to check shortest pathways
     
-    def multigraph(self,T,P):
-        t = nx.MultiGraph()
-        for i,reac in self.preloaded_data[T][{}].items():
-            r = list(reac['e'].reac)
-            p = list(reac['e'].prod)
-            t.add_edges_from([c,i] for c in r)
-            t.add_edges_from([i,c] for c in r)
-            t.add_edges_from([c,i] for c in p)
-            t.add_edges_from([i,c] for c in p)
-        return(t)
     
     def multidigraph_from_t_and_p_range(self,trange,prange):
         graphs = {}
@@ -364,3 +388,56 @@ class GraphGenerator:
                     pbar.update(1)
                 graphs[T] = pdict
         return(graphs)
+
+    def multidigraph_from_t_and_p_range_cost(self,trange,prange):
+        graphs = {}
+        with tqdm(total=len(trange)*len(prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+            pbar.set_description('generating graph')
+            for T in trange:
+                pdict = {}
+                for P in prange:
+                    pdict[P] = self.multidigraph_cost(T,P)
+                    pbar.update(1)
+                graphs[T] = pdict
+        return(graphs)
+
+class GenerateInitialConcentrations:
+
+    def __init__(self,graph,T,P):
+        self.graph = graph
+        self.T = T
+        self.P = P
+
+    def all_random(self):
+        compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
+        ic = {c:np.random.random()/1e6 for c in compounds}
+        ic['CO2'] = 1
+        return(ic)
+
+    def specific_random(self,compounds=None):
+        full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
+        ic = {}
+        for c in full_list:
+            if c  in self.compounds:
+                ic[c] = np.random.random()/1e6
+            else:
+                ic[c] = 0 
+        ic['CO2'] = 1
+        return(ic)
+
+    def from_file(self,file_name):
+        nodes = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
+        file_concentrations = loadfn(file_name)
+        loaded_compounds = list(file_concentrations.keys())
+        ic = {}
+        for c in nodes:
+            if c not in loaded_compounds:
+                ic[c] = 0
+            else:
+                ic[c] = file_concentrations[c]
+        ic['CO2'] = 1
+        return(ic)
+
+
+
+
