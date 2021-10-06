@@ -71,9 +71,10 @@ class ReactionsGenerator:
                         pbar.set_description('{}'.format(l))
                         pbar.update(1)
                         try:
-                            balance_stoichiometry(list(r),list(p))
+                            re,pr = balance_stoichiometry(list(r),list(p))
+                            re = Reaction(re,pr)
                             outfile.write('\n')
-                            outfile.write(str(poss))
+                            outfile.write(re.string())
                             outfile.flush()
                         except:
                             pass
