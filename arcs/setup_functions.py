@@ -27,11 +27,11 @@ class GetEnergyandVibrations:
         self.directory = directory
         
     def atoms(self):
-        structure = read('{}/POSCAR.gz'.format(self.directory))
+        structure = read('{}/relax/POSCAR.gz'.format(self.directory))
         return(structure)
         
     def energy(self):
-        outcar = gzip.open('{}/OUTCAR.gz'.format(self.directory),'tr').readlines()
+        outcar = gzip.open('{}/relax/OUTCAR.gz'.format(self.directory),'tr').readlines()
         for line in outcar:
             if 'y=' in line:
                 energy = float(line.split()[-1])
@@ -42,7 +42,7 @@ class GetEnergyandVibrations:
         return(energy)
     
     def spin(self):
-        outcar = gzip.open('{}/OUTCAR.gz'.format(self.directory),'tr').readlines()
+        outcar = gzip.open('{}/relax/OUTCAR.gz'.format(self.directory),'tr').readlines()
         for line in outcar:
             if 'NELECT' in line:
                 nelect = float(line.split()[2])
@@ -104,7 +104,7 @@ class GetEnergyandVibrations:
         return(rot)          
         
     def vibrations(self):
-        new_directory = os.path.join(self.directory,'ibrion_6')
+        new_directory = os.path.join(self.directory,'vibrations')
         outcar = gzip.open('{}/OUTCAR.gz'.format(new_directory),'tr').readlines()
         frequencies = []
         for line in outcar:
