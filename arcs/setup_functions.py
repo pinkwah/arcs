@@ -21,17 +21,18 @@ import copy
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
 
-class GetEnergyandVibrations:
+class GetEnergyandVibrationsVASP:
     '''Class to get the Total Energy and Vibrations from a directory containing a calculations'''
-    def __init__(self,directory):
-        self.directory = directory
+    def __init__(self,relax_directory,vibrations_directory):
+        self.relax = relax_directory
+        self.vibrations = vibrations_directory
         
     def atoms(self):
-        structure = read('{}/relax/POSCAR.gz'.format(self.directory))
+        structure = read('{}/POSCAR.gz'.format(self.relax))
         return(structure)
         
     def energy(self):
-        outcar = gzip.open('{}/relax/OUTCAR.gz'.format(self.directory),'tr').readlines()
+        outcar = gzip.open('{}/OUTCAR.gz'.format(self.relax),'tr').readlines()
         for line in outcar:
             if 'y=' in line:
                 energy = float(line.split()[-1])
@@ -42,7 +43,7 @@ class GetEnergyandVibrations:
         return(energy)
     
     def spin(self):
-        outcar = gzip.open('{}/relax/OUTCAR.gz'.format(self.directory),'tr').readlines()
+        outcar = gzip.open('{}/OUTCAR.gz'.format(self.relax),'tr').readlines()
         for line in outcar:
             if 'NELECT' in line:
                 nelect = float(line.split()[2])
@@ -103,9 +104,8 @@ class GetEnergyandVibrations:
                     
         return(rot)          
         
-    def vibrations(self):
-        new_directory = os.path.join(self.directory,'vibrations')
-        outcar = gzip.open('{}/OUTCAR.gz'.format(new_directory),'tr').readlines()
+    def get_vibrations(self):
+        outcar = gzip.open('{}/OUTCAR.gz'.format(self.vibrations),'tr').readlines()
         frequencies = []
         for line in outcar:
             if 'THz' in line:
@@ -120,9 +120,103 @@ class GetEnergyandVibrations:
                 'rotation_num':self.rotation_num(),
                 'islinear':self.islinear(),
                 'energy':self.energy(),
-                'vibrations':self.vibrations()})
+                'vibrations':self.get_vibrations()})
     
+class GetEnergyandVibrationsDalton:
+    def __init__(self,relax_directory,vibrations_directory):
+        self.relax = relax_directory
+        self.vibrations = vibrations_directory
+        
+    def atoms(self):
+        structure = read('{}/output.xyz'.format(self.relax))
+        return(structure)
     
+    def energy(self):
+        daltonout = open('{}/output.out'.format(self.relax),'r').readlines()
+        for line in daltonout:
+            if 'Final' in line and 'energy' in line:
+                energy = float(line.split()[-1])
+        return(energy*27.211396) # a.u -> eV conversion
+    
+    def spin(self):
+        nelect = np.sum(self.atoms().get_atomic_numbers()) # not sure if this is correct
+        return([0 if nelect %2 == 0 else 1][0])
+    
+    def pointgroup(self):
+        atoms = self.atoms()
+        pg = PointGroupAnalyzer(AseAtomsAdaptor.get_molecule(atoms)).get_pointgroup()
+        return(pg.sch_symbol)
+    
+    def islinear(self):
+        num_at = self.atoms()
+        if num_at.get_global_number_of_atoms() == 1:
+            return('monatomic')
+        else:
+            pg = self.pointgroup()
+            if '*' in pg:
+                return('linear')
+            else:
+                return('nonlinear')
+            
+    def rotation_num(self):
+        pg = [x for x in self.pointgroup()]
+        if pg[0] == 'C':
+            if pg[-1] == 'i':
+                rot = 1
+            elif pg[-1] == 's':
+                rot = 1
+            elif pg[-1] == 'h':
+                rot = int(pg[1])
+            elif pg[-1] == 'v':
+                if pg[1] == '*':
+                    rot = 1
+                else:
+                    rot = int(pg[1])
+            elif len(pg) == 2:
+                rot = int(pg[-1])
+                
+        elif pg[0] == 'D':
+            if pg[-1] == 'h':
+                if pg[1] == '*':
+                    rot = 2
+                else:
+                    rot = 2*int(pg[1])
+            elif pg[-1] == 'd':
+                rot = 2*int(pg[1])
+            elif len(pg) == 2:
+                rot = 2*int(pg[1])
+            
+        elif pg[0] == 'T':
+            rot = 12
+        
+        elif pg[0] == 'O':
+            rot = 24
+        
+        elif pg[0] == 'I':
+            rot = 60        
+                    
+        return(rot)     
+    
+    def get_vibrations(self):
+        daltonout = open('{}/output.out'.format(self.vibrations),'r').readlines()
+        frequencies = []
+        datalines = []
+        for i,line in enumerate(daltonout):
+            if 'frequency' in line and 'mode' in line:
+                datalines.append(i+4)
+            elif 'Normal Coordinates' in line:
+                datalines.append(i)
+        recip_cm = [float(x.split()[2])/8100 for x in daltonout[datalines[0]:datalines[1]] if len(x.split()) > 1] # 8100 conversion cm-1 -> eV
+        return(recip_cm) 
+
+    def as_dict(self):
+        return({'atoms':self.atoms(),
+                'spin':self.spin(),
+                'rotation_num':self.rotation_num(),
+                'islinear':self.islinear(),
+                'energy':self.energy(),
+                'vibrations':self.get_vibrations()})
+
 class ReactionGibbsandEquilibrium:
     
     def __init__(self,reaction,temperature,pressure,reaction_input):
@@ -133,7 +227,7 @@ class ReactionGibbsandEquilibrium:
         
     def Gibbs(self,c):
         data = self.reaction_input[c]
-        igt = IdealGasThermo(vib_energies=data.vibrations(),
+        igt = IdealGasThermo(vib_energies=data.get_vibrations(),
                                         geometry=data.islinear(),
                                         potentialenergy=data.energy(),
                                         atoms=data.atoms(),
