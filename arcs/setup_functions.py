@@ -28,7 +28,13 @@ class GetEnergyandVibrationsVASP:
         self.vibrations = vibrations_directory
         
     def atoms(self):
+        def _get_initial_magnetic_moments(ats):
+            magmoms = []
+            for atnum in ats.get_atomic_numbers():
+                magmoms.append([0 if atnum %2 == 0 else 1][0])
+            return(magmoms)
         structure = read('{}/POSCAR.gz'.format(self.relax))
+        structure.set_initial_magnetic_moments(_get_initial_magnetic_moments(structure))
         return(structure)
         
     def energy(self):
