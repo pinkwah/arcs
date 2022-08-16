@@ -72,7 +72,7 @@ class ReactionsDictionaryGenerator:
                 
                 
 
-class ReactionsDictionaryToEquation:
-    ''' a class that takes a premade reactions reference dictionary and generates a list of reactions with it that are then further balanced and filtered'''
-    
-    def __init__(path,file
+#class ReactionsDictionaryToEquation:
+#    ''' a class that takes a premade reactions reference dictionary and generates a list of reactions with it that are then further balanced and filtered'''
+#    
+#    def __init__(path,file
