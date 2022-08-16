@@ -1,6 +1,6 @@
 import numpy as np
 import itertools as it
-import tqdm.notebook as tqdm
+import tqdm
 from datetime import datetime
 from monty.serialization import loadfn,dumpfn
 import gzip,os
@@ -69,3 +69,10 @@ class ReactionsDictionaryGenerator:
                                                 products_length=size[1])
                 filename=os.path.join(self.path,'data_{}-{}.dat'.format(reaction_length,i))
                 self.datawriter(data=l,name=filename)
+                
+                
+
+class ReactionsDictionaryToEquation:
+    ''' a class that takes a premade reactions reference dictionary and generates a list of reactions with it that are then further balanced and filtered'''
+    
+    def __init__(path,file
