@@ -37,8 +37,8 @@ class ReactionsDictionaryGenerator:
         return(filtered_list)
     
     def reaction_run_and_clean_speedup(self,indexes=None,reactants_length=None,products_length=None):
-        rs = list(it.combinations(indexes,reactants_length)) # can this be an iterator?
-        ps = list(it.combinations(indexes,products_length))
+        rs = tuple(it.combinations(indexes,reactants_length)) # can this be an iterator?
+        ps = tuple(it.combinations(indexes,products_length))
         
         filtered_list = []
         for i in rs:
@@ -48,10 +48,31 @@ class ReactionsDictionaryGenerator:
                 if not si  ==  sj:
                     if not any([x in sj for x in si]):
                         if filtered_list:
-                            if not [si,sj] or not [sj,si] in filtered_list:
-                                filtered_list.append([si,sj])
+                            if not tuple((si,sj)) or not tuple((sj,si)) in filtered_list:
+                                filtered_list.append(tuple((si,sj)))
                         else:
-                            filtered_list.append([si,sj])
+                            filtered_list.append(tuple((si,sj)))
+            
+        return(filtered_list)
+    
+    def reaction_run_and_clean_speedup_pbar(self,indexes=None,reactants_length=None,products_length=None):
+        rs = tuple(it.combinations(indexes,reactants_length)) # can this be an iterator?
+        ps = tuple(it.combinations(indexes,products_length))
+        
+        filtered_list = []
+        with tqdm.tqdm(total=len(rs)*len(ps),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+            for i in rs:
+                si = sorted(i)
+                for j in ps:
+                    sj = sorted(j)
+                    pbar.update(1)
+                    if not si  ==  sj:
+                        if not any([x in sj for x in si]):
+                            if filtered_list:
+                                if not tuple((si,sj)) or not tuple((sj,si)) in filtered_list:
+                                    filtered_list.append(tuple((si,sj)))
+                            else:
+                                filtered_list.append(tuple((si,sj)))
             
         return(filtered_list)
 
