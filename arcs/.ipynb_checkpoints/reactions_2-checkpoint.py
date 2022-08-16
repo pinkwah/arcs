@@ -35,6 +35,25 @@ class ReactionsDictionaryGenerator:
                                 filtered_list.append((tuple(set(i)),tuple(set((j)))))
             
         return(filtered_list)
+    
+    def reaction_run_and_clean_speedup(self,indexes=None,reactants_length=None,products_length=None):
+        rs = list(it.combinations(indexes,reactants_length)) # can this be an iterator?
+        ps = list(it.combinations(indexes,products_length))
+        
+        filtered_list = []
+        for i in rs:
+            si = sorted(i)
+            for j in ps:
+                sj = sorted(j)
+                if not si  ==  sj:
+                    if not any([x in sj for x in si]):
+                        if filtered_list:
+                            if not [si,sj] or not [sj,si] in filtered_list:
+                                filtered_list.append([si,sj])
+                        else:
+                            filtered_list.append([si,sj])
+            
+        return(filtered_list)
 
 
     def datawriter(self,data,name):
