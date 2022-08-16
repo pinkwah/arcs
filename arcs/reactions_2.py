@@ -140,6 +140,35 @@ class ReactionsDictionaryGenerator:
                 self.datawriter(data=l,name=filename)
                 
                 
+    def runner_2_pbar(self,reaction_length=4,split_files=False):
+        sizing = [x for x in it.combinations_with_replacement(np.arange(1,reaction_length),2) 
+                  if np.sum(x) == reaction_length] 
+        
+        print('running_runner for {} component reactions...'.format(reaction_length))
+        print('{} possibilities : {}'.format(len(sizing),sizing))
+        
+        if len(sizing) == 1 or split_files==False:
+            for i,size in enumerate(sizing):
+                if i == 0:
+                    l = self.reaction_run_and_clean_speedup_pbar(indexes=np.arange(self.nc+1),
+                                                    reactants_length=size[0],
+                                                    products_length=size[1])
+                else:
+                    l.extend(self.reaction_run_and_clean_speedup_pbar(indexes=np.arange(self.nc+1),
+                                                    reactants_length=size[0],
+                                                    products_length=size[1]))
+                filename=os.path.join(self.path,'data_{}.dat'.format(reaction_length))
+                self.datawriter(data=l,name=filename)
+                             
+        else:
+            for i,size in enumerate(sizing):
+                l = self.reaction_run_and_clean_speedup_pbar(indexes=np.arange(self.nc+1),
+                                                reactants_length=size[0],
+                                                products_length=size[1])
+                filename=os.path.join(self.path,'data_{}-{}.dat'.format(reaction_length,i))
+                self.datawriter(data=l,name=filename)
+                
+                
 
 #class ReactionsDictionaryToEquation:
 #    ''' a class that takes a premade reactions reference dictionary and generates a list of reactions with it that are then further balanced and filtered'''
