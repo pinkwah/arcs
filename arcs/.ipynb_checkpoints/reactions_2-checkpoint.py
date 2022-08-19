@@ -191,6 +191,7 @@ class ReactionsDictionaryGenerator:
     def _while_procs(self,tl,nprocs):
         
         while nprocs>1:
+            print(nprocs,end=':')
             nprocs = int(nprocs/2)
             tl = self._mp_run(tl,nprocs)
             print(len(tl),end='->')
