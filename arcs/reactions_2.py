@@ -196,7 +196,6 @@ class ReactionsDictionaryGenerator:
             tl = self._mp_run(tl,nprocs)
             print(len(tl),end='->')
                 
-            
         return(tl)
     
             
@@ -263,6 +262,7 @@ class ReactionsDictionaryGenerator:
                     rs = it.combinations([x for x in range(self.nc+1)],size[0])
                     ps = it.combinations([x for x in range(self.nc+1)],size[1])
                     tl = tuple(it.product(rs,ps))
+                    
                     l_pre = self._while_procs(tl,nprocs)
                     l = self.reaction_filter_serial(l_pre)
                     print(len(l))
@@ -270,7 +270,7 @@ class ReactionsDictionaryGenerator:
                     rs = it.combinations([x for x in range(self.nc+1)],size[0])
                     ps = it.combinations([x for x in range(self.nc+1)],size[1])
                     tl = tuple(it.product(rs,ps))
-                    print(size,':',len(tl),end='->')
+                    
                     l_pre = self._while_procs(tl,nprocs)
                     l2 = self.reaction_filter_serial(l_pre)
                     print(len(l2))
@@ -290,7 +290,7 @@ class ReactionsDictionaryGenerator:
                 self.datawriter(data=l,name=filename)  
                     
                 
-                
+###blach                
 
                 
                 
