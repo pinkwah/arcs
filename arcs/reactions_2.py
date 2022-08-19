@@ -195,10 +195,9 @@ class ReactionsDictionaryGenerator:
             nprocs = int(nprocs/2)
             tl = self._mp_run(tl,nprocs)
             if dat:
-                print(dat)
                 if dat[-1] == len(tl):
                     nprocs=1
-            dat.append(tl)
+            dat.append(len(tl))
             print(len(tl),end='->')
                 
         return(tl)
