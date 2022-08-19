@@ -186,6 +186,19 @@ class ReactionsDictionaryGenerator:
         data_chain = tuple(it.chain(*data))
         # should the serial part come here?
         return(data_chain)
+    
+    
+    def _while_procs(self,tl,nprocs):
+        
+        while nprocs>1:
+            print(len(tl),end='->')
+            nprocs = int(nprocs/2)
+            tl = self._mp_run(tl,nprocs)
+            print(len(tl),end='->')
+                
+            
+        return(tl)
+    
             
         
         
@@ -230,6 +243,47 @@ class ReactionsDictionaryGenerator:
                 tl = tuple(it.product(rs,ps))
                 l_pre = self._mp_run(tl,nprocs)
                 print(len(l_pre),end='->')
+                l = self.reaction_filter_serial(l_pre)
+                print(len(l))
+                filename=os.path.join(self.path,'data_{}-{}.dat'.format(reaction_length,i))
+                self.datawriter(data=l,name=filename)  
+                
+    def runner_mp_while(self,reaction_length=4,split_files=False,nprocs=4):
+        import math
+        '''protect behind if __name__ == '__main__':'''
+        sizing = [x for x in it.combinations_with_replacement(np.arange(1,reaction_length),2) 
+                  if np.sum(x) == reaction_length] 
+        
+        print('running_runner for {} component reactions...'.format(reaction_length),end=' ')
+        print('{} possibilities : {}'.format(len(sizing),sizing))
+        
+        if len(sizing) == 1 or split_files==False:
+            for i,size in enumerate(sizing):
+                if i == 0:
+                    rs = it.combinations([x for x in range(self.nc+1)],size[0])
+                    ps = it.combinations([x for x in range(self.nc+1)],size[1])
+                    tl = tuple(it.product(rs,ps))
+                    l_pre = self._while_procs(tl,nprocs)
+                    l = self.reaction_filter_serial(l_pre)
+                    print(len(l))
+                else:
+                    rs = it.combinations([x for x in range(self.nc+1)],size[0])
+                    ps = it.combinations([x for x in range(self.nc+1)],size[1])
+                    tl = tuple(it.product(rs,ps))
+                    print(size,':',len(tl),end='->')
+                    l_pre = self._while_procs(tl,nprocs)
+                    l2 = self.reaction_filter_serial(l_pre)
+                    print(len(l2))
+                    l.extend(l2)
+                
+                filename=os.path.join(self.path,'data_{}.dat'.format(reaction_length))
+                self.datawriter(data=l,name=filename)
+        else:
+            for i,size in enumerate(sizing):
+                rs = it.combinations([x for x in range(self.nc+1)],size[0])
+                ps = it.combinations([x for x in range(self.nc+1)],size[1])
+                tl = tuple(it.product(rs,ps))
+                l_pre = self._while_procs(tl,nprocs)
                 l = self.reaction_filter_serial(l_pre)
                 print(len(l))
                 filename=os.path.join(self.path,'data_{}-{}.dat'.format(reaction_length,i))
