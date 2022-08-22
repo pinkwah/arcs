@@ -178,7 +178,7 @@ class ReactionsDictionaryGenerator:
         
         data = []
         for i in range(nprocs):
-            data.append(queue.get(timeout=3600))
+            data.append(queue.get())
     
         for pr in processes:
             pr.join()    
