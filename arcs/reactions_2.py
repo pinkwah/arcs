@@ -231,7 +231,7 @@ class ReactionsDictionaryGenerator:
                 else:
                     rs = it.combinations([x for x in range(self.nc+1)],size[0])
                     ps = it.combinations([x for x in range(self.nc+1)],size[1])
-                    tl = tuple(it.product(rs,ps))
+                    tl = tuple(itHHHHH.product(rs,ps))
                     print(size,':',len(tl),end='->')
                     l2 = self._mp_run(tl,nprocs)
                     l.extend(l2)
@@ -302,7 +302,25 @@ class ReactionsDictionaryGenerator:
                 filename=os.path.join(self.path,'data_{}-{}.dat'.format(reaction_length,i))
                 self.datawriter(data=l,name=filename)  
                     
-                
+
+    def clean_from_file(self,filename,nprocs=4):
+        import gzip
+        '''file is a gzip'''
+        def _convert_line(file):
+            for line in file:
+            r,p = line.strip().split('],')
+            r = tuple(int(x) for x in r.split('([')[1].split(',') if x)
+            p = tuple(int(x) for x in p.split('[')[1].split('])')[0].split(',') if x)
+            yield ((r,p))
+        print('reading from file...',end=' ')
+        f = tuple(_convert_line(gzip.open(filename,'rt')))
+        print(len(f),end='->')
+        l = self._mp_run(tl,nprocs)
+        print(len(l))
+        filename = filename.replace('.dat','_reloaded.dat')
+        self.datawriter(data=l,name=filename)
+
+
 ###blach                
 
                 
