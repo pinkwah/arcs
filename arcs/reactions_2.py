@@ -231,7 +231,7 @@ class ReactionsDictionaryGenerator:
                 else:
                     rs = it.combinations([x for x in range(self.nc+1)],size[0])
                     ps = it.combinations([x for x in range(self.nc+1)],size[1])
-                    tl = tuple(itHHHHH.product(rs,ps))
+                    tl = tuple(it.product(rs,ps))
                     print(size,':',len(tl),end='->')
                     l2 = self._mp_run(tl,nprocs)
                     l.extend(l2)
