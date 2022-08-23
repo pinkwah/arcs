@@ -317,7 +317,7 @@ class ReactionsDictionaryGenerator:
         print(len(f),end='->')
         l = self._mp_run(f,nprocs)
         print(len(l))
-        filename = filename.replace('.dat','_reloaded.dat')
+        filename = filename.replace('.dat.gz','_reloaded.dat')
         self.datawriter(data=l,name=filename)
 
 
