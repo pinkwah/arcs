@@ -315,7 +315,7 @@ class ReactionsDictionaryGenerator:
         print('reading from file...',end=' ')
         f = tuple(_convert_line(gzip.open(filename,'rt')))
         print(len(f),end='->')
-        l = self._mp_run(tl,nprocs)
+        l = self._mp_run(f,nprocs)
         print(len(l))
         filename = filename.replace('.dat','_reloaded.dat')
         self.datawriter(data=l,name=filename)
