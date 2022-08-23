@@ -308,10 +308,10 @@ class ReactionsDictionaryGenerator:
         '''file is a gzip'''
         def _convert_line(file):
             for line in file:
-            r,p = line.strip().split('],')
-            r = tuple(int(x) for x in r.split('([')[1].split(',') if x)
-            p = tuple(int(x) for x in p.split('[')[1].split('])')[0].split(',') if x)
-            yield ((r,p))
+                r,p = line.strip().split('],')
+                r = tuple(int(x) for x in r.split('([')[1].split(',') if x)
+                p = tuple(int(x) for x in p.split('[')[1].split('])')[0].split(',') if x)
+                yield ((r,p))
         print('reading from file...',end=' ')
         f = tuple(_convert_line(gzip.open(filename,'rt')))
         print(len(f),end='->')
