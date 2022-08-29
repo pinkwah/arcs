@@ -6,6 +6,10 @@ from monty.serialization import loadfn,dumpfn
 import gzip,os,math
 from copy import deepcopy
 from pathos.helpers import mp as pmp 
+from chempy import balance_stoichiometry,Reaction
+from chempy.equilibria import Equilibrium
+from chempy.reactionsystem import Substance
+
 
 class ReactionsDictionaryGenerator:
     ''' a class that creates the initial reference dictionary for solving all permutations of reactions between N compounds ( in this case defaults to 30 compounds) 
@@ -321,12 +325,113 @@ class ReactionsDictionaryGenerator:
         self.datawriter(data=l,name=filename)
 
 
-###blach                
 
-                
-                
 
-#class ReactionsDictionaryToEquation:
-#    ''' a class that takes a premade reactions reference dictionary and generates a list of reactions with it that are then further balanced and filtered'''
-#    
-#    def __init__(path,file
+class MappingtoReaction:
+    ''' a class that takes a premade reactions reference dictionary and generates a list of reactions with it that are then further balanced and filtered'''
+    
+    def __init__(self,filename,compounds):
+        self.filename = filename
+        self.compounds = {i:c for i,c in enumerate(compounds)}
+        
+    def convert_file(self,file): # iterator that reads in the file (file is a gzip)
+        for line in file:
+            r,p = line.strip().split('],')
+            r = tuple(int(x) for x in r.split('([')[1].split(',') if x)
+            p = tuple(int(x) for x in p.split('[')[1].split('])')[0].split(',') if x)    
+            yield ((r,p))
+            
+    def remove_indices(self,reaction_indexes):
+        indexes =  tuple(self.compounds)
+        approved = []
+        for r in reaction_indexes:
+            if not [x for x in it.chain(*r) if not x in indexes]:
+                approved.append(r)
+        return(approved)
+    
+    def convert_to_string(self,approved_list):
+    
+        def _screen_string(r):
+            re,pr = r
+            c = []
+            for i in re:
+                rs = [x for x in i]
+                for j in rs:
+                    try:
+                        int(j)
+                    except:
+                        c.append(j)
+        
+            dr = set(dict.fromkeys(c))
+        
+            c = []
+            for i in pr:
+                ps = [x for x in i]
+                for j in ps:
+                    try:
+                        int(j)
+                    except:
+                        c.append(j)
+        
+            dp = set(dict.fromkeys(c))
+        
+            if dr == dp:
+                return(r)
+    
+        converted = []
+        for r in approved_list:
+            d = [[self.compounds[i] for i in r[0]],[self.compounds[i] for i in r[1]]]
+            ds = _screen_string(d)
+            if ds:
+                converted.append(ds)
+        return(converted)
+    
+    def convert_to_equation(self,converted_strings):
+        converted = []
+        for r in tqdm.tqdm(converted_strings):
+            re,pr = r
+            try:
+                converted.append(balance_stoichiometry(list(re),list(pr),underdetermined=None))
+            except:
+                try:
+                    converted.append(balance_stoichiometry(list(re),list(pr)))
+                except:
+                    pass                            
+        return(converted) 
+    
+    def screen_converted(self,converted_reactions):
+        def _convert_ord_to_dict(r):
+            re,pr =  r
+            try:
+                reacs = {k:int(re[k]) for k in re}
+                prods = {k:int(pr[k]) for k in pr}
+            except:
+                print('\n error with {}'.format(r))
+            return(reacs,prods)
+    
+        screened = []
+        for r in converted_reactions:
+            try:
+                re,pr = _convert_ord_to_dict(r)
+                try:
+                    screened.append(Equilibrium(re,pr))
+                except:
+                    pass
+            except:
+                pass
+        return(screened)    
+    
+    def run_all(self):
+        s = datetime.now()
+        loi = tuple(self.convert_file(gzip.open(self.filename,'rt')))
+        print('orig =',len(loi),end='...')
+        approved = self.remove_indices(loi)
+        print(' approved = ',len(approved),end='...')
+        strings = self.convert_to_string(approved)
+        print(' prescreening = ',len(strings),end='...')
+        equations = self.convert_to_equation(strings)
+        screened = self.screen_converted(equations)
+        print(' final = ',len(screened),end='...')
+        f = datetime.now() - s 
+        print(' time = ',f)
+        return(screened)

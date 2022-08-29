@@ -49,11 +49,14 @@ class GetEnergyandVibrationsVASP:
         return(energy)
     
     def spin(self):
-        outcar = gzip.open('{}/OUTCAR.gz'.format(self.relax),'tr').readlines()
-        for line in outcar:
-            if 'NELECT' in line:
-                nelect = float(line.split()[2])
-                return([0 if nelect %2 == 0 else 1][0])
+        if self.atoms().get_chemical_formula() in ['O2','CO3']:
+            return(1)
+        else:    
+            outcar = gzip.open('{}/OUTCAR.gz'.format(self.relax),'tr').readlines()
+            for line in outcar:
+                if 'NELECT' in line:
+                    nelect = float(line.split()[2])
+                    return([0 if nelect %2 == 0 else 0.5][0])
             
     def pointgroup(self):
         atoms = self.atoms()
@@ -122,6 +125,7 @@ class GetEnergyandVibrationsVASP:
     
     def as_dict(self):
         return({'atoms':self.atoms(),
+                'pointgroup':self.pointgroup(),
                 'spin':self.spin(),
                 'rotation_num':self.rotation_num(),
                 'islinear':self.islinear(),
