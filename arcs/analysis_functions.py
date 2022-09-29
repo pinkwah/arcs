@@ -223,7 +223,7 @@ def get_mean_change_in_data(t_and_p_data,percentage=True):
                 for T in t_and_p_data.keys()}
         d = pd.DataFrame(data) 
         mean_dataframe = pd.DataFrame({T:
-                                       {P:pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')
+                                       {P:pd.DataFrame(d[T][P]).T[1:].mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')
                                         for P in d.index} 
                                        for T in d.columns})
     else:
@@ -235,7 +235,7 @@ def get_mean_change_in_data(t_and_p_data,percentage=True):
                 for T in t_and_p_data.keys()}
         d = pd.DataFrame(data)
         mean_dataframe = pd.DataFrame({T:
-                                       {P:((pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')) / pd.DataFrame(d[T][P])[0].drop('CO2'))*100
+                                       {P:((pd.DataFrame(d[T][P]).T[1:].mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')) / pd.DataFrame(d[T][P])[0].drop('CO2'))*100
                                         for P in d.index}
                                        for T in d.columns})
     return(mean_dataframe)

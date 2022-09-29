@@ -399,7 +399,7 @@ class MappingtoReaction:
                     pass                            
         return(converted) 
     
-    def screen_converted(self,converted_reactions):
+    def screen_converted(self,converted_reactions): # this should be multiprocessed - > perhaps a mp.Pool? as it only needs the big list
         def _convert_ord_to_dict(r):
             re,pr =  r
             try:
@@ -428,7 +428,7 @@ class MappingtoReaction:
         approved = self.remove_indices(loi)
         print(' approved = ',len(approved),end='...')
         strings = self.convert_to_string(approved)
-        print(' prescreening = ',len(strings),end='...')
+        print(' prescreening = ',len(strings))
         equations = self.convert_to_equation(strings)
         screened = self.screen_converted(equations)
         print(' final = ',len(screened),end='...')

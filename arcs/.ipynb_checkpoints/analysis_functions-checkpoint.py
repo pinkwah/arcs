@@ -7,6 +7,7 @@ import itertools as it
 #from tqdm.notebook import tqdm
 from tqdm import tqdm
 from collections import defaultdict
+from numpy.random import choice
 
 import os
 import warnings
@@ -36,7 +37,13 @@ class Traversal:
     
     def random_walk(self,T,P,path_depth=10):
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        available = [a for a,i in self.concs.items() if i !=0]
+        #available = [a for a,i in self.concs.items() if i !=0] #previous random random
+        #source = random.choice([n for n in nodes if n in available])
+        temp_concs = copy.deepcopy(self.concs)
+        del temp_concs['CO2']
+        available = [choice(list(temp_concs.keys()),
+                len(temp_concs),
+                p=[x/sum(temp_concs.values()) for x in temp_concs.values()])[0]]
         source = random.choice([n for n in nodes if n in available])
         path = []
         for i in range(path_depth):
@@ -45,7 +52,7 @@ class Traversal:
             source = target
             if not len(p) == 1:
                 path.append(p)
-        return(path)
+        return(path)   
     
     def generate_eqsystems_from_path(self,path,T,P):
         charged_species = {'CO3H':-1,'NH4':+1,'NH2CO2':-1} # this needs to be added to the arguments
@@ -131,7 +138,7 @@ class Traversal:
             pbar2.reset()
         out_q.put(sample_data)
     
-    def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4):
+    def graph_sampling_processes(self,sample_length=100,path_depth=50,nprocs=4,random_path_depth=False):
         init_concs = copy.deepcopy(self.concs)
         with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
             temperature_data = {}
@@ -147,6 +154,8 @@ class Traversal:
                             for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
                     jobs = []
                     for chunk in data_chunks:
+                        if random_path_depth == True:
+                            path_depth = random.randint(1,100) #implementing a random function
                         process = pmp.Process(target=self.sampling_function_queue,
                                     args=(chunk,T,P,path_depth,out_queue))
                         jobs.append(process)
@@ -166,43 +175,6 @@ class Traversal:
                     pbar1.update(1)
                 temperature_data[T] = pressure_data
         return(temperature_data)
-    
-#    def graph_sampling_pool_apply_async(self,sample_length=100,path_depth=50,nprocs=4):
-#        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
-#            temperature_data = {}
-#            for T in self.trange:
-#                pressure_data = {}
-#                for P in self.prange:
-#                    pbar1.set_description('T = {},P = {}'.format(T,P))
-#                    samples = list(range(1,sample_length+1,1))
-#                    data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
-#                            for i in range(nprocs) 
-#                            for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
-#
-#                    pool =  multiprocessing.Pool(nprocs)
-#                    jobs = []
-#                    for chunk in data_chunks:
-#                        jobs.append(pool.apply_async(self.sampling_function_no_queue,args=(chunk,T,P,path_depth)))
-#
-#                    pressure_data[P] = [result.get() for result in jobs]
-#                    pool.close()
-#                    pbar1.update(1)
-#                temperature_data[T] = pressure_data
-#        return(temperature_data)
-#    
-#    def graph_sampling_pool_imap(self,sample_length=100,path_depth=50,nprocs=4):
-#        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:20}{r_bar}',position=0,leave=True) as pbar1:
-#            temperature_data = {}
-#            for T in self.trange:
-#                pressure_data = {}
-#                for P in self.prange:
-#                    samples = list(range(0,sample_length,1))
-#                    pool = multiprocessing.Pool(nprocs)
-#                    pbar1.set_description('T = {},P = {}'.format(T,P))
-#                    pressure_data[P]  = pool.imap(self.sampling_function_no_queue,(samples,T,P,path_depth))
-#                    pbar1.update(1)
-#                temperature_data[T] = pressure_data
-#        return(temperature_data)
     
     
 def get_reaction_statistics(t_and_p_data):
@@ -232,9 +204,13 @@ def get_reaction_statistics(t_and_p_data):
         d = pd.DataFrame(equation_statistics).T.sort_values(by='frequency',ascending=False)
         return(d)
 
-    dict_of_dataframes = {T:{P:get_dataframes(equations[T][P]) 
+    try:
+        dict_of_dataframes = {T:{P:get_dataframes(equations[T][P]) 
                              for P in prange} 
                           for T in trange}
+    except:
+        dict_of_dataframes = {T:{P:[] for P in prange}
+                              for T in trange}
     return(dict_of_dataframes)
 
 def get_mean_change_in_data(t_and_p_data,percentage=True):
@@ -247,7 +223,7 @@ def get_mean_change_in_data(t_and_p_data,percentage=True):
                 for T in t_and_p_data.keys()}
         d = pd.DataFrame(data) 
         mean_dataframe = pd.DataFrame({T:
-                                       {P:pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')
+                                       {P:pd.DataFrame(d[T][P]).T[1:].mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')
                                         for P in d.index} 
                                        for T in d.columns})
     else:
@@ -259,7 +235,7 @@ def get_mean_change_in_data(t_and_p_data,percentage=True):
                 for T in t_and_p_data.keys()}
         d = pd.DataFrame(data)
         mean_dataframe = pd.DataFrame({T:
-                                       {P:((pd.DataFrame(d[T][P]).T.mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')) / pd.DataFrame(d[T][P])[0].drop('CO2'))*100
+                                       {P:((pd.DataFrame(d[T][P]).T[1:].mean().drop('CO2') - pd.DataFrame(d[T][P])[0].drop('CO2')) / pd.DataFrame(d[T][P])[0].drop('CO2'))*100
                                         for P in d.index}
                                        for T in d.columns})
     return(mean_dataframe)
