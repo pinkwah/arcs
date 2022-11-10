@@ -10,6 +10,12 @@ from chempy import balance_stoichiometry,Reaction
 from chempy.equilibria import Equilibrium
 from chempy.reactionsystem import Substance
 
+'''
+1. Starts with a ReactionDictionaryGenerator - which generates a combination of numbers
+2. Filters based on compounds present
+3. Filters based on balanced reactions
+'''
+
 
 class ReactionsDictionaryGenerator:
     ''' a class that creates the initial reference dictionary for solving all permutations of reactions between N compounds ( in this case defaults to 30 compounds) 
@@ -18,83 +24,7 @@ class ReactionsDictionaryGenerator:
     
     def __init__(self,no_compounds=30,path='.'):
         self.nc = no_compounds
-        self.path= os.path.abspath(path)
-        
-
-    
-    def _reaction_run_and_clean_DEPRECATED(self,indexes=None,reactants_length=None,products_length=None,pbar=True):
-        rs = tuple(it.combinations(indexes,reactants_length)) # can this be an iterator?
-        ps = tuple(it.combinations(indexes,products_length))
-        
-
-        def _filter(rs,ps):
-            filtered_list = []
-            for i in rs:
-                si = sorted(i)
-                for j in ps:
-                    sj = sorted(j)
-                    if not si  ==  sj:
-                        if not any([x in sj for x in si]):
-                            if filtered_list:
-                                if not tuple((si,sj)) or not tuple((sj,si)) in filtered_list:
-                                    filtered_list.append(tuple((si,sj)))
-                            else:
-                                filtered_list.append(tuple((si,sj)))
-            
-            return(filtered_list)
-        
-        
-    def _reaction_run_and_clean_speedup_pbar_DEPRECATED(self,indexes=None,reactants_length=None,products_length=None):
-        rs = tuple(it.combinations(indexes,reactants_length)) # can this be an iterator?
-        ps = tuple(it.combinations(indexes,products_length))
-        
-        filtered_list = []
-        with tqdm.tqdm(total=len(rs)*len(ps),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
-            for i in rs:
-                si = sorted(i)
-                for j in ps:
-                    sj = sorted(j)
-                    pbar.update(1)
-                    if not si  ==  sj:
-                        if not any([x in sj for x in si]):
-                            if filtered_list:
-                                if not tuple((si,sj)) or not tuple((sj,si)) in filtered_list:
-                                    filtered_list.append(tuple((si,sj)))
-                            else:
-                                filtered_list.append(tuple((si,sj)))
-            
-        return(filtered_list)
-    
-    
-    def _runner_2_pbar_DEPRECATED(self,reaction_length=4,split_files=False):
-        sizing = [x for x in it.combinations_with_replacement(np.arange(1,reaction_length),2) 
-                  if np.sum(x) == reaction_length] 
-        
-        print('running_runner for {} component reactions...'.format(reaction_length))
-        print('{} possibilities : {}'.format(len(sizing),sizing))
-        
-        if len(sizing) == 1 or split_files==False:
-            for i,size in enumerate(sizing):
-                if i == 0:
-                    l = self._reaction_run_and_clean_speedup_pbar_DEPRECATED(indexes=np.arange(self.nc+1),
-                                                    reactants_length=size[0],
-                                                    products_length=size[1])
-                else:
-                    l.extend(self._reaction_run_and_clean_speedup_pbar_DEPRECATED(indexes=np.arange(self.nc+1),
-                                                    reactants_length=size[0],
-                                                    products_length=size[1]))
-                filename=os.path.join(self.path,'data_{}.dat'.format(reaction_length))
-                self.datawriter(data=l,name=filename)
-                             
-        else:
-            for i,size in enumerate(sizing):
-                l = self.reaction_run_and_clean_speedup_pbar_DEPRECATED(indexes=np.arange(self.nc+1),
-                                                reactants_length=size[0],
-                                                products_length=size[1])
-                filename=os.path.join(self.path,'data_{}-{}.dat'.format(reaction_length,i))
-                self.datawriter(data=l,name=filename)
-        
-        
+        self.path= os.path.abspath(path)        
         
     def reaction_filter_serial(self,tl): # for serial applications
         fl = []
@@ -205,10 +135,6 @@ class ReactionsDictionaryGenerator:
             print(len(tl),end='->')
                 
         return(tl)
-    
-            
-        
-        
                 
     def runner_mp(self,reaction_length=4,split_files=False,nprocs=4):
         import math
