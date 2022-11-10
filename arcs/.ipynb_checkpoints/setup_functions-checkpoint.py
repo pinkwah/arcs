@@ -269,6 +269,7 @@ class ReactionGibbsandEquilibrium:
 
 
 class ApplyDataToReaction:
+    # might be a good idea to interpolate this
     ''' this class applies the gibbs data to a specific reaction'''
     
     def __init__(self,trange,prange,reactions,compound_data,nprocs):
@@ -443,7 +444,3 @@ class GenerateInitialConcentrations:
                 ic[c] = file_concentrations[c]
         ic['CO2'] = 1
         return(ic)
-
-
-
-

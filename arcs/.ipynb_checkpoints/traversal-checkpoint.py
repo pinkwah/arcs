@@ -25,10 +25,12 @@ from pathos.helpers import mp as pmp
 import queue
 
 class Traversal:
-    def __init__(self,graph,reactions,concs,trange,prange,**kwargs):
+    def __init__(self,graph,reactions,concs,trange,prange,co2=False,**kwargs):
         self.graph = graph
         self.reactions = reactions
         self.concs = copy.deepcopy(concs)
+        if co2==False:
+            self.concs['CO2'] = 0.0
         #self.progress = kwargs['progress']
         self.trange = trange
         self.prange = prange
