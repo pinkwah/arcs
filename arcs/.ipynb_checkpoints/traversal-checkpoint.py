@@ -247,7 +247,7 @@ class Traversal:
         result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
         #start the queue
         out_queue = pmp.Queue()
-        samples = list(range(self.sample_length))
+        samples = list(range(1,self.sample_length+1,1))
         data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
                             for i in range(self.nprocs) 
                             for chunksize in [int(math.ceil(len(samples)/float(self.nprocs)))]]
