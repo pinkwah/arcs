@@ -230,7 +230,7 @@ class Traversal:
     
     def _queue_function(self,pbari,samples,T,P,probability_threshold,path_depth,max_compounds,max_rank,out_q):
         sample_data = {}
-        with tqdm(total=len(samples),bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=True) as pbar:
+        with tqdm(total=len(samples),bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
             for sample in samples:
                 sample_data[sample] = self.random_path_scenario3(T=T,P=P,probability_threshold=probability_threshold,
                                                                         path_depth=path_depth,
@@ -239,46 +239,7 @@ class Traversal:
                 pbar.update(1)
                     
         out_q.put(sample_data)
-        
-            
-    #def sampling_multiprocessing(self,T=None,P=None,sample_length=self.sample_length,
-    #                             probability_threshold=self.probability_threshold,
-    #                             max_compounds=self.max_compounds,
-    #                             max_rank=self.max_rank,path_depth=self.path_depth,
-    #                             nprocs=self.nprocs,random_path_depth=self.random_path_depth):
-    
-            
-    #    init_concs = copy.deepcopy(self.concs)
-    #    result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
-    #    #start the queue
-    #    out_queue = pmp.Queue()
-    #    samples = list(range(sample_length))
-    #    data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
-    #                        for i in range(nprocs) 
-    #                        for chunksize in [int(math.ceil(len(samples)/float(nprocs)))]]
-    #    
-    #    jobs = []
-    #    for i,chunk in enumerate(data_chunks):
-    #        process = pmp.Process(target=self._queue_function,
-    #                              args=(i,chunk,T,P,
-    #                                    probability_threshold,
-    #                                    path_depth,
-    #                                    max_compounds,
-    #                                    max_rank,
-    #                                    out_queue))
-    #        jobs.append(process)
-    #        process.start()
-    #
-    #
-    #    for proc in jobs:
-    #        result_dict.update(out_queue.get())
-    #
-    #    for proc in jobs:
-    #        proc.join()
-    #
-    #    out_queue.close()
-    #
-    #    return(result_dict) 
+
     
     def sampling_multiprocessing(self,T=None,P=None,**kw):
         
@@ -321,7 +282,7 @@ class Traversal:
         num=1
         total = len(trange) * len(prange)
         
-        from datetime import date,datetime
+        from datetime import datetime
         needed_args = self.__dict__
         for i in needed_args:
             if i in kw:
@@ -336,12 +297,11 @@ class Traversal:
 //     | | //    | | ((____/ / ((___ / /    
 version:1.2
 {}
-{}
         ->sample_length = {}
         ->probability_threshold = {}
         ->max_compounds = {}
         ->max_rank = {}
-        ->number of processes = {}\n'''.format(str(date.today()),str(datetime.now()),self.sample_length,
+        ->number of processes = {}\n'''.format(str(datetime.now()),self.sample_length,
                                            self.probability_threshold,self.max_compounds,
                                            self.max_rank,self.nprocs))
         
@@ -350,8 +310,11 @@ version:1.2
         for T in trange:
             data_2 = {}
             for P in prange:
-                print('{}/{}: temperature = {}K, pressure = {}bar '.format(total,num,T,P),end='\n')
+                start = datetime.now()
+                print('{}/{}: temperature = {}K, pressure = {}bar '.format(total,num,T,P),end=' ')
                 data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
+                finish = datetime.now() - start
+                print('-> {} seconds'.format(finish.total_seconds()),end='\n')
                 num+=1
             total_data[T] = data_2
                 
