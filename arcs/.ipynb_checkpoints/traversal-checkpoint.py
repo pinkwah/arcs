@@ -311,7 +311,7 @@ version:1.2
             data_2 = {}
             for P in prange:
                 start = datetime.now()
-                print('{}/{}: temperature = {}K, pressure = {}bar '.format(total,num,T,P),end='\n')
+                print('{}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
                 data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
                 finish = datetime.now() - start
                 print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
