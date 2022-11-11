@@ -16,7 +16,6 @@ from chempy.reactionsystem import Substance
 3. Filters based on balanced reactions
 '''
 
-
 class ReactionsDictionaryGenerator:
     ''' a class that creates the initial reference dictionary for solving all permutations of reactions between N compounds ( in this case defaults to 30 compounds) 
     
