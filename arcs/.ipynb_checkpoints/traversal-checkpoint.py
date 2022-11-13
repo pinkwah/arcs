@@ -305,7 +305,9 @@ version:1.2
                                            self.probability_threshold,self.max_compounds,
                                            self.max_rank,self.nprocs))
         
-        print(self.concs)
+        print('concentrations:\n')
+        concstring = pd.Series({k:v for k,v, in self.concs.items() if v > 0}) / 1e-6
+        print(concstring.to_string())
         
             
         total_data = {}
