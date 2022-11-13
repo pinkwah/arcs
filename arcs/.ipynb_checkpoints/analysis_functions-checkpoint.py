@@ -62,7 +62,24 @@ def get_reaction_statistics(t_and_p_data):
                               for T in trange}
     return(dict_of_dataframes)
 
+def str_to_int_dict(data):
+    new_dict = {}
+    for t in data:
+        tdata = {}
+        for p in data[t]:
+            pdata = {}
+            for x in data[t][p]:
+                pdata[int(x)] = {'data':data[t][p][x]['data']}
+            tdata[int(p)] = pdata
+        new_dict[int(t)] = tdata
+    return(new_dict)
+
 def get_mean_change_in_data(t_and_p_data,percentage=True):
+    
+    if isinstance(list(t_and_p_data)[0],str):
+        t_and_p_data = str_to_int_dict(t_and_p_data)
+        
+
     final = {T:
                 {P:
                 np.mean(pd.DataFrame({x:t_and_p_data[T][P][x]['data'] for x in t_and_p_data[T][P]})[1:].T) 

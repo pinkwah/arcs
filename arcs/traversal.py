@@ -305,6 +305,8 @@ version:1.2
                                            self.probability_threshold,self.max_compounds,
                                            self.max_rank,self.nprocs))
         
+        print(self.concs)
+        
             
         total_data = {}
         for T in trange:

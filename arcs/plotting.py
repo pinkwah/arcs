@@ -16,7 +16,7 @@ import os
 from monty.serialization import loadfn,dumpfn
 import matplotlib
 
-def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean_percentages=None,reduce_compounds=True,init_concs=None):
+def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean_percentages=None,reduce_compounds=True,init_concs=None,legend=True):
     ax=axis
     T = temperature  
     P = pressure
@@ -41,7 +41,7 @@ def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean
     
     df_t[T][P].plot(kind='bar',ax=ax,color=colours)
 
-    ax.set_yscale('symlog')
+    #ax.set_yscale('symlog')
     label_names = []
     charged_species = {'CO3H':'-','NH4':'+','NH2CO2':'-'}
     separater = ''
@@ -111,7 +111,10 @@ def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean
     )
     ax.add_patch(threshold_rectangle)
     legend_patch = patches.Patch(color='grey',alpha=0.5,label='detection threshold ({:.1F} ppm)'.format(threshold/1e-6))
-    plt.legend(handles=[legend_patch],frameon=True,edgecolor='black')
+    if legend==True:
+        plt.legend(handles=[legend_patch],frameon=True,edgecolor='black')
+    else:
+        plt.legend([],frameon=False)
 
     
 def overlay_experiment(ax,exp_dict,init_concs,mean_data,T,P,threshold,**kw):
