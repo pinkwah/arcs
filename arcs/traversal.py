@@ -301,9 +301,10 @@ version:1.2
         ->probability_threshold = {}
         ->max_compounds = {}
         ->max_rank = {}
+        ->path_depth = {}
         ->number of processes = {}\n'''.format(str(datetime.now()),self.sample_length,
                                            self.probability_threshold,self.max_compounds,
-                                           self.max_rank,self.nprocs))
+                                           self.max_rank,self.path_depth,self.nprocs))
         
         print('concentrations:\n')
         concstring = pd.Series({k:v for k,v, in self.concs.items() if v > 0}) / 1e-6
