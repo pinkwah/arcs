@@ -48,12 +48,20 @@ class Traversal:
         
     
 #    ######################################################################################################################################################        
-    def _get_weighted_random_compounds(self,T,P,concs=None,co2=False,max_compounds=2,probability_threshold=0.05):     # doesnt' include looping
+    def _get_weighted_random_compounds(self,T,P,concs=None,co2=False,max_compounds=2,probability_threshold=0.05,mass_weight=False):     # doesnt' include looping
         # 1. choose a compound
         # 2. choose another compound
         
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        temp_concs = copy.deepcopy(concs)            
+        temp_concs = copy.deepcopy(concs)  
+        
+        if mass_weight == True: # this is a bit dodgy should remove it 
+            tconcs = {}
+            for k,v in temp_concs.items():
+                m=Substance().from_formula(k).mass 
+                tconcs[k] = v/m
+            temp_concs = tconcs
+     
 
         #if not force_selection == None:
         #    new_temp_concs = {}
@@ -62,7 +70,7 @@ class Traversal:
         #        if c in force_selection:
         #            new_temp_concs[c] = temp_concs[c]
 
-        #    temp_concs = new_temp_concs
+        #    temp_concs = new_temp_concs                     
 
         if co2 == False:
             del temp_concs['CO2']
