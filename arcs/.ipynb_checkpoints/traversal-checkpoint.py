@@ -27,17 +27,16 @@ import warnings
 import time
 
 class Traversal:
-    def __init__(self,graph,reactions,concs,trange,prange,co2=False,**kwargs):
+    def __init__(self,graph,reactions,concs,trange,prange):
         self.graph = graph
         self.reactions = reactions
         self.concs = copy.deepcopy(concs)
-        #self.progress = kwargs['progress']
         self.trange = trange
         self.prange = prange
-        if co2==False:
-            self.concs['CO2'] = 0.0
-        pass
+
+
         #default values:
+        self.co2 = False
         self.max_compounds = 5
         self.probability_threshold=0.05
         self.max_rank=5
@@ -45,21 +44,22 @@ class Traversal:
         self.path_depth=20
         self.random_path_depth=False
         self.nprocs = 4
+        self.log_weight = False
         
     
 #    ######################################################################################################################################################        
-    def _get_weighted_random_compounds(self,T,P,concs=None,co2=False,max_compounds=2,probability_threshold=0.05,mass_weight=False):     # doesnt' include looping
+    def _get_weighted_random_compounds(self,T,P,concs=None,co2=False,max_compounds=2,probability_threshold=0.05):     # doesnt' include looping
         # 1. choose a compound
         # 2. choose another compound
         
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
         temp_concs = copy.deepcopy(concs)  
         
-        if mass_weight == True: # this is a bit dodgy should remove it 
+        if self.log_weight == True: # this is a bit dodgy should remove it 
             tconcs = {}
             for k,v in temp_concs.items():
-                m=Substance().from_formula(k).mass 
-                tconcs[k] = v/m
+                if not v == 0:
+                    tconcs[k] = np.log(v/1e-6)
             temp_concs = tconcs
      
 
@@ -194,7 +194,8 @@ class Traversal:
                               path_depth=50,
                               #concs=None,
                               max_compounds=5,
-                              max_rank=5):
+                              max_rank=5,
+                              co2=False):
     
         final_concs = {0:copy.deepcopy(self.concs)} 
         reactionstats = {0:None}
@@ -204,7 +205,8 @@ class Traversal:
             try:
                 choices = self._get_weighted_random_compounds(T,P,concs=fcs,
                                                max_compounds=max_compounds,
-                                               probability_threshold=probability_threshold)
+                                               probability_threshold=probability_threshold,
+                                                             co2=co2)
             except:
                 path_depth = ip+1
                 break
@@ -236,14 +238,15 @@ class Traversal:
                 'path_length':len([r for r in reactionstats.values() if not r==None])})  
     
     
-    def _queue_function(self,pbari,samples,T,P,probability_threshold,path_depth,max_compounds,max_rank,out_q):
+    def _queue_function(self,pbari,samples,T,P,probability_threshold,path_depth,max_compounds,max_rank,co2,out_q):
         sample_data = {}
         with tqdm(total=len(samples),bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
             for sample in samples:
                 sample_data[sample] = self.random_path_scenario3(T=T,P=P,probability_threshold=probability_threshold,
                                                                         path_depth=path_depth,
                                                                         max_compounds=max_compounds,
-                                                                        max_rank=max_rank)
+                                                                        max_rank=max_rank,
+                                                                        co2=co2)
                 pbar.update(1)
                     
         out_q.put(sample_data)
@@ -268,6 +271,7 @@ class Traversal:
                                         self.path_depth,
                                         self.max_compounds,
                                         self.max_rank,
+                                        self.co2,
                                         out_queue))
             jobs.append(process)
             process.start()
@@ -285,7 +289,7 @@ class Traversal:
         
     def run_mp(self,trange,prange,save=False,savename=None,**kw):
         '''
-        kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,nprocs,random_path_depth
+        kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,nprocs,random_path_depth,co2=False
         '''
         num=1
         total = len(trange) * len(prange)
@@ -310,9 +314,12 @@ version:1.2
         ->max_compounds = {}
         ->max_rank = {}
         ->path_depth = {}
+        ->co2 = {}
+        ->log_weight = {}
         ->number of processes = {}\n'''.format(str(datetime.now()),self.sample_length,
                                            self.probability_threshold,self.max_compounds,
-                                           self.max_rank,self.path_depth,self.nprocs))
+                                           self.max_rank,self.path_depth,self.co2,self.log_weight,
+                                               self.nprocs))
         
         print('concentrations:\n')
         concstring = pd.Series({k:v for k,v, in self.concs.items() if v > 0}) / 1e-6
@@ -328,6 +335,11 @@ version:1.2
                 data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
                 finish = datetime.now() - start
                 print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
+                mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
+                print('final concentrations (>0.5ppm):\n')
+                print(mean.to_string())
+                avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
+                print('\n median path length: {}'.format(avgpathlength))
                 num+=1
             total_data[T] = data_2
                 
