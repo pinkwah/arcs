@@ -65,7 +65,7 @@ def get_reaction_statistics(data):
     return(eqt)
 
 def str_to_int_dict(data):
-    new_dict = {}
+    _dict_dict = {}
     for t in data:
         tdata = {}
         for p in data[t]:
@@ -73,8 +73,8 @@ def str_to_int_dict(data):
             for x in data[t][p]:
                 pdata[int(x)] = {'data':data[t][p][x]['data']}
                 tdata[int(p)] = pdata
-                new_dict[int(t)] = tdata
-    return(new_dict)
+                _dict_dict[int(t)] = tdata
+    return(_dict_dict)
 
 def get_mean_change_in_data(data):
     tr = list(data.keys())
@@ -103,25 +103,25 @@ def get_mean_change_in_data(data):
             
     return(md)# needs to be a dict
 
-def reaction_paths(data,max_rows=10):
+def reaction_paths(data,index_override=None):
     '''currently chooses the top reaction, and only does what comes after'''
 
-    def eqsys_from_path(pathsstats):
-        new  = {}
-        new['paths'] = {}
-        new['k'] = {}
-        new['frequency'] = pathsstats['frequency']
+    def _eqpath(pathsstats):
+        _dict  = {}
+        _dict['paths'] = {}
+        _dict['k'] = {}
+        _dict['frequency'] = pathsstats['frequency']
         for i in pathsstats['frequency']:
             r_1,k_1 = pathsstats['reaction 1'][i].split(';')
             k_1 = float(k_1.split('k=')[1])
             r_2,k_2 = pathsstats['reaction 2'][i].split(';')
             k_2 = float(k_2.split('k=')[1])
     
-            string_1 = r_1 + '\n' + r_2 
-            string_2 = str(k_1) + '\n' + str(k_2)
-            new['paths'][i] = string_1
-            new['k'][i] = string_2
-        return(new)
+            str1 = r_1 + '\n' + r_2 
+            str2 = str(k_1) + '\n' + str(k_2)
+            _dict['paths'][i] = str1
+            _dict['k'][i] = str2
+        return(_dict)
 
     df1 = {}
     for T in data:
@@ -129,35 +129,39 @@ def reaction_paths(data,max_rows=10):
         for P in data[T]:
             stats = {int(x):{y:{'reaction':d.split(';')[0],'k':d.split(';')[1]} for y,d in enumerate(data[T][P][x]['equation_statistics']) if d} for x in data[T][P]}
             try:
-                top_reaction = str(get_reaction_statistics(data)[float(T)][float(P)]['index'][0])
+                if index_override == None: # should allow for clickable paths, ideally this should go through all paths
+                    index = 0
+                else:
+                    index = index_override
+                tr = str(get_reaction_statistics(data)[float(T)][float(P)]['index'][index])
             except:
-                top_reaction = None
+                tr = None
     
-            valid_samples = []
+            vs = []
             for x in stats:
                 if stats[x]:
                     for y in stats[x]:
-                        if top_reaction in stats[x][y]['reaction']:
-                             valid_samples.append(x)
+                        if tr in stats[x][y]['reaction']:
+                             vs.append(x)
 
             p2l = []
-            for x in valid_samples:
+            for x in vs:
                 if len(stats[x]) > 1:
                     for y in stats[x]:
-                        if stats[x][y]['reaction'] == top_reaction:
+                        if stats[x][y]['reaction'] == tr:
                             try:
                                 p2l.append(stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+stats[x][y+1]['reaction']+' ; k='+stats[x][y+1]['k'].split('\n')[0])
                             except:
                                 p2l.append(stats[x][y-1]['reaction']+' ; k='+stats[x][y-1]['k'].split('\n')[0]+':'+stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0])
             try:
                 frequencies = Counter(p2l)
-                freq_sort = {frequencies[f]:{x:d for x,d in enumerate(f.split(':'))} for x,f in enumerate(frequencies)}
-                df = pd.DataFrame(dict(reversed(sorted(freq_sort.items())))).T.head(max_rows).reset_index()
+                fs = {frequencies[f]:{x:d for x,d in enumerate(f.split(':'))} for x,f in enumerate(frequencies)}
+                df = pd.DataFrame(dict(reversed(sorted(fs.items())))).T.reset_index()
     
                 df.columns = 'frequency','reaction 1','reaction 2'
                 df.set_index('frequency')
                 dict_ = df.to_dict()
-                df2[float(P)] = eqsys_from_path(dict_)
+                df2[float(P)] = _eqpath(dict_)
             except:
                 df2[float(P)] = {'frequency':[None],'paths':[None],'k':[None]}
 
