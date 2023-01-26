@@ -410,10 +410,10 @@ class GraphGenerator:
 
 class GenerateInitialConcentrations:
 
-    def __init__(self,graph,T,P):
+    def __init__(self,graph):
         self.graph = graph
-        self.T = T
-        self.P = P
+        self.T = list(graph)[0]
+        self.P = list(graph[self.T])[0]
 
     def all_random(self):
         compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
