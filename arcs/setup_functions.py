@@ -420,14 +420,22 @@ class GenerateInitialConcentrations:
 
     def __init__(self,graph):
         self.graph = graph
-        self.T = list(graph)[0]
-        self.P = list(graph[self.T])[0]
+        self.T = list(graph)[0] # dummy temp
+        self.P = list(graph[self.T])[0] # dummy pressure
 
-    def all_random(self):
+    def all_random(self,include_co2=True):
         compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
         ic = {c:np.random.random()/1e6 for c in compounds}
-        ic['CO2'] = 1
-        return(ic)
+        if not include_co2==True:
+            ic['CO2'] = 1
+        self.ic = ic
+    
+    def all_zero(self,include_co2=True):
+        compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
+        ic = {c:0 for c in compounds}
+        if not include_co2==True:
+            ic['CO2'] = 1
+        self.ic = ic
 
     def specific_random(self,compounds=None):
         full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
@@ -438,7 +446,15 @@ class GenerateInitialConcentrations:
             else:
                 ic[c] = 0 
         ic['CO2'] = 1
-        return(ic)
+        self.ic = ic
+    
+    def update_ic(self,update_dict):
+        ''' update dict = {'CO2':1e-6,'H2O':300e-5} etc.'''
+        if not self.ic:
+            self.all_zero(include_co2=True)
+        for k,v in update_dict.items():
+            self.ic[k] = v
+        
 
     def from_file(self,file_name):
         nodes = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
@@ -451,4 +467,5 @@ class GenerateInitialConcentrations:
             else:
                 ic[c] = file_concentrations[c]
         ic['CO2'] = 1
+        self.ic = ic
         return(ic)
