@@ -17,6 +17,7 @@ import networkx as nx
 from pathos.helpers import mp as pmp
 import math
 import copy
+import pickle
 
 def get_compound_directory(base,compound,size):
     return(os.path.join(base,compound,size))
@@ -232,7 +233,7 @@ class ReactionGibbsandEquilibrium:
     def __init__(self,reaction,temperature,pressure,reaction_input):
         self.reaction = reaction
         self.temperature = temperature
-        self.pressure = pressure*100000 #pressure in bar
+        self.pressure = pressure*100000 #pressure in bar -> Pa
         self.reaction_input = reaction_input
         
     def Gibbs(self,c):
@@ -269,24 +270,26 @@ class ReactionGibbsandEquilibrium:
 
 
 class ApplyDataToReaction:
-    # might be a good idea to interpolate this
+    # future functionality:
+    # 1. interpolation - should speed things up
     ''' this class applies the gibbs data to a specific reaction'''
     
     def __init__(self,trange,prange,reactions,compound_data,nprocs):
         self.trange = trange
         self.prange = prange
-        self.reactions = reactions
+        self.reactions = {i:r for i,r in enumerate(pickle.load(open(reactions,'rb')))}
         self.compound_data = compound_data
         self.nprocs = nprocs
+        self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
         
-    def get_t_p_data(self,t,p): #serial
+    def _generate_data_serial(self,t,p): #serial
         reactions = {i:{'e':r,
             'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant(),
             'g':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).reaction_energy()} 
                      for i,r in tqdm(enumerate(self.reactions))}
         return(reactions)
 
-    def get_t_p_data_mp(self,t,p): #multiprocessed
+    def generate_data(self,t,p): #multiprocessed
 
         manager = pmp.Manager()
         queue = manager.Queue()
@@ -320,22 +323,33 @@ class ApplyDataToReaction:
 
         return(resultdict)
         
-    def as_dict(self):
+    def apply(self,serial=False):
         data = {}
-        with tqdm(total=len(self.trange)*len(self.prange),bar_format='{desc:<5.5}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format=self.barformat) as pbar:
             for t in self.trange:
                 pdat = {}
                 for p in self.prange:
-                    pdat[p] = self.get_t_p_data_mp(t,p)
+                    if serial == False:
+                        pdat[p] = self._generate_data_serial(t,p)
+                    else:
+                        pdat[p] = self.generate_data(t,p)
                     pbar.update(1)
                 data[t] = pdat
-        return(data) 
+        self.data = data
+        return(self.data) 
+    
+    def save(self,filename='applied_reactions.p'):
+        pickle.dump(self.data,open(filename,'wb'))
+        print('data saved to: {}'.format(filename))
 
         
-class GraphGenerator:
+class GraphGenerator:    
     
-    def __init__(self,preloaded_data):
-        self.preloaded_data = preloaded_data
+    def __init__(self,applied_reactions):
+        self.applied_reactions = pickle.load(open(applied_reactions,'rb'))
+        self.trange = list(self.applied_reactions)
+        self.prange = list(self.applied_reactions[self.trange[0]])
+        self.barformat = '{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}'
 
     def _cost_function(self,gibbs,T,reactants):
         '''takes the cost function that is used in https://www.nature.com/articles/s41467-021-23339-x.pdf'''
@@ -354,7 +368,7 @@ class GraphGenerator:
     def multidigraph_cost(self,T,P):
         ''' this will weight the graph in terms of a cost function which makes it better for a Djikstra algorithm to work'''
         t = nx.MultiDiGraph(directed=True)
-        for i,reac in self.preloaded_data[T][P].items():
+        for i,reac in self.applied_reactions[T][P].items():
             f_cost = self._cost_function(reac['g'],T,reac['e'].reac) #forward cost
             b_cost = self._cost_function(-reac['g'],T,reac['e'].prod) #backward cost
             r = list(reac['e'].reac)
@@ -363,11 +377,11 @@ class GraphGenerator:
             t.add_weighted_edges_from([i,c,b_cost] for c in r) #reaction -> reactants
             t.add_weighted_edges_from([i,c,f_cost] for c in p) #reaction -> products
             t.add_weighted_edges_from([c,i,b_cost] for c in p) #products -> reaction
-        return(t) #probably don't need something that has if and elif
+        return(t)
 
     def multidigraph(self,T,P):
         t = nx.MultiDiGraph(directed=True)
-        for i,reac in self.preloaded_data[T][P].items():
+        for i,reac in self.applied_reactions[T][P].items():
             r = list(reac['e'].reac)
             p = list(reac['e'].prod)
             k = reac['k'] # maybe check equilibrium.as_reactions ( gives forward and backward reactions!)
@@ -381,32 +395,26 @@ class GraphGenerator:
                 t.add_weighted_edges_from([i,c,k] for c in r)
                 t.add_weighted_edges_from([i,c,1/k] for c in p)
                 t.add_weighted_edges_from([c,i,k] for c in p)
-        return(t) #need to check shortest pathways
-    
-    
-    def multidigraph_from_t_and_p_range(self,trange,prange):
-        graphs = {}
-        with tqdm(total=len(trange)*len(prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
-            pbar.set_description('generating graph')
-            for T in trange:
-                pdict = {}
-                for P in prange:
-                    pdict[P] = self.multidigraph(T,P)
-                    pbar.update(1)
-                graphs[T] = pdict
-        return(graphs)
+        return(t)
 
-    def multidigraph_from_t_and_p_range_cost(self,trange,prange):
+    def generatemultidigraph(self,cost_function=True):
         graphs = {}
-        with tqdm(total=len(trange)*len(prange),bar_format='{desc:<20}{percentage:3.0f}%|{bar:10}{r_bar}') as pbar:
+        with tqdm(total=len(self.trange)*len(self.prange),bar_format=self.barformat) as pbar:
             pbar.set_description('generating graph')
-            for T in trange:
+            for T in self.trange:
                 pdict = {}
-                for P in prange:
-                    pdict[P] = self.multidigraph_cost(T,P)
+                for P in self.prange:
+                    if cost_function == True:
+                        pdict[P] = self.multidigraph_cost(T,P)
+                    elif cost_function == False:
+                        pdict[P] = self.multidigraph(T,P)                        
                     pbar.update(1)
                 graphs[T] = pdict
-        return(graphs)
+        self.graph = graphs
+    
+    def save(self,filename='graph.p'):
+        pickle.dump(self.graph,open(filename,'wb'))
+        print('graph saved to: {}'.format(filename))
 
 class GenerateInitialConcentrations:
 
