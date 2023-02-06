@@ -286,7 +286,7 @@ class ApplyDataToReaction:
         reactions = {i:{'e':r,
             'k':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).equilibrium_constant(),
             'g':ReactionGibbsandEquilibrium(r,t,p,self.compound_data).reaction_energy()} 
-                     for i,r in tqdm(enumerate(self.reactions))}
+                     for i,r in tqdm(self.reactions.items())}
         return(reactions)
 
     def generate_data(self,t,p): #multiprocessed
@@ -329,7 +329,7 @@ class ApplyDataToReaction:
             for t in self.trange:
                 pdat = {}
                 for p in self.prange:
-                    if serial == False:
+                    if serial == True:
                         pdat[p] = self._generate_data_serial(t,p)
                     else:
                         pdat[p] = self.generate_data(t,p)
