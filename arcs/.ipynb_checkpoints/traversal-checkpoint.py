@@ -56,6 +56,7 @@ class Traversal:
         self.ceiling = 2000
         self.scale_highest=0.1
         self.method='Bellman-Ford'
+        self.final_concs = {}
         
 
         
@@ -369,11 +370,16 @@ class Traversal:
 
         for proc in jobs:
             result_dict.update(out_queue.get())
+            
+        for proc in jobs:
+            proc.terminate()
 
         for proc in jobs:
             proc.join()
 
         out_queue.close()
+        
+
 
         return(result_dict) 
         
@@ -424,6 +430,7 @@ version:1.2
         total_data = {}
         for T in trange:
             data_2 = {}
+            final_concs_2 = {}
             for P in prange:
                 start = datetime.now()
                 print('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
@@ -433,11 +440,14 @@ version:1.2
                 mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
                 print('\n final concentrations (>0.5ppm):\n')
                 print(mean.to_string())
+                final_concs_2[P] = mean.to_dict()
                 avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
                 print('\n median path length: {}'.format(avgpathlength))
                 path_lengths.append(avgpathlength)
                 num+=1
             total_data[T] = data_2
+            self.final_concs[T] = final_concs_2
+            
                 
         if save == True:
             from monty.serialization import dumpfn
