@@ -20,9 +20,8 @@ def plot_difference(axis,
                     mean_data,
                     temperature,
                     pressure,
-                    threshold,
-                    ymin,
-                    ymax,
+                    threshold=0.1,
+                    ylim=None,
                     mean_percentages=None,
                     reduce_compounds=True,
                     init_concs=None,
@@ -32,27 +31,41 @@ def plot_difference(axis,
     T = temperature  
     P = pressure
     
+    df = pd.DataFrame(mean_data[T][P])
+    
     if reduce_compounds == True:
-        md = pd.DataFrame(mean_data[T][P]).T
-        df = md[md['value'] != 0]
-        dfp = md[md['value'] >=threshold]
-        dfn = md[md['value'] <=-threshold]
-        df_t = {T:{P:pd.concat([dfn,dfp])}}
+        md = df.T
+        df_1 = md[md['value'] != 0]
+        df_p = md[md['value'] >=threshold]
+        df_n = md[md['value'] <=-threshold]
+        df_t = pd.concat([df_n,df_p])
         #del df_t[T][P]['CO2']
-        for x in init_concs:
-            if not x == 'CO2':
-                if x not in df_t[T][P] and not init_concs[x] == 0:
-                    df_t[T][P][x]['value'] = 0.0            
+        #for x in init_concs:
+        #    if not x == 'CO2':
+        #        if x not in df_t[T][P] and not init_concs[x] == 0:
+        #            df_t[T][P][x]['value'] = 0.0            
     else:
-        df_t = mean_data
+        df_t = df
+        
+    if ylim == None:
+        max_val = np.max([np.abs(df_t['value'].min()),np.abs(df_t['value'].max())])
+        ylim = [-max_val-1,max_val+1]
+    
+    ax.set_ylim(ylim[0],ylim[1])
+    
+    norm = colors.Normalize(vmin=ylim[0],vmax=ylim[1])
+    cmap = matplotlib.cm.RdBu
+    colours = [cmap(norm(y)) for y in list(df_t['value'])]
+        
+   
 
-    df_t[T][P].plot(kind='bar',y='value',yerr='variance',ax=ax)#,color=colours)
+    df_t.plot(kind='bar',y='value',yerr='variance',ax=ax,color=colours)
 
     #ax.set_yscale('symlog')
     label_names = []
     charged_species = {'CO3H':'-','NH4':'+','NH2CO2':'-'}
     separater = ''
-    for label in list(df_t[T][P]['value'].keys()):
+    for label in list(df_t['value'].keys()):
         data = []
         for i,x in enumerate(label):
             try:
@@ -66,8 +79,10 @@ def plot_difference(axis,
     
     ax.set_ylabel('$\Delta$ Concentrations (ppm/Arb. units)')    
     ax.set_xticklabels(label_names,rotation=80)
-    ax.set_ylim(ymin,ymax)
-    ax.set_yticks(np.linspace(ymin,ymax,5))
+    
+
+
+    ax.set_yticks(np.linspace(ylim[0],ylim[1],5))
     ppm_labels = ['{:.1F}'.format(x) for x in ax.get_yticks()]
     ax.set_yticklabels(ppm_labels)
     ax.axhline(0,color='k')
