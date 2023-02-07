@@ -54,6 +54,8 @@ class Traversal:
         self.random_path_depth=False
         self.nprocs = 4    
         self.ceiling = 3000
+        self.scale_highest=0.001
+        self.method='bellman-ford'
         
 
         
@@ -61,106 +63,103 @@ class Traversal:
         
     
 #    ######################################################################################################################################################        
-    def _get_weighted_random_compounds_DEPRECATED(self,T,P,
-                                       concs=None,
-                                       co2=False,
-                                       max_compounds=2,
-                                       probability_threshold=0.05,
-                                       ceiling=1000):     # doesnt' include looping
-        # 1. choose a compound
-        # 2. choose another compound
-        
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        temp_concs = copy.deepcopy(concs)             
+#    def _get_weighted_random_compounds_DEPRECATED(self,T,P,
+#                                       concs=None,
+#                                       co2=False,
+#                                       max_compounds=2,
+#                                       probability_threshold=0.05,
+#                                       ceiling=1000):     # doesnt' include looping
+#        # 1. choose a compound
+#        # 2. choose another compound
+#        
+#        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+#        temp_concs = copy.deepcopy(concs)            
 
-        if co2 == False:
-            del temp_concs['CO2']
-            
-        probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
-        available = [choice(list(temp_concs.keys()),
-                len(temp_concs),
-                p=list(probabilities.values()))][0]
-        num_species = len([x for x in temp_concs.values() if x > 0])
-        if max_compounds > num_species:
-            #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
-            max_compounds = num_species
-            
-            
-        choices = {}
-        for c in range(max_compounds): 
-            if c == 0:
-                c1 = random.choice([n for n in nodes if n in available])
-                if probabilities[c1] >= probability_threshold:
-                    choices[c1] = probabilities[c1]
-            else:
-                #c2 = random.choice([x for x in available if not x in choices])
-                c2 = random.choice([x for x in available])
-
-                if probabilities[c2] >= probability_threshold:
-                    choices[c2] = probabilities[c2]
-        return(choices)
+#        if co2 == False:
+#            del temp_concs['CO2']
+#            
+#        probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
+#        available = [choice(list(temp_concs.keys()),
+#                len(temp_concs),
+#                p=list(probabilities.values()))][0]
+#        num_species = len([x for x in temp_concs.values() if x > 0])
+#        if max_compounds > num_species:
+#            #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
+#            max_compounds = num_species
+#            
+#            
+#        choices = {}
+#        for c in range(max_compounds): 
+#            if c == 0:
+#                c1 = random.choice([n for n in nodes if n in available])
+#                if probabilities[c1] >= probability_threshold:
+#                    choices[c1] = probabilities[c1]
+#            else:
+#                #c2 = random.choice([x for x in available if not x in choices])
+#                c2 = random.choice([x for x in available])
+#
+#                if probabilities[c2] >= probability_threshold:
+#                    choices[c2] = probabilities[c2]
+#        return(choices)
     
     
-    def _get_weighted_random_compounds(self,
-                                       concs=None,
-                                       co2=False,
-                                       max_compounds=2,
-                                       probability_threshold=0.05,
-                                       ceiling=3000):     # doesnt' include looping
-        # 1. choose a compound
-        # 2. choose another compound
+    def _get_weighted_random_compounds(self,T,P,
+                             init_concs=None,
+                             co2=False, # should probably be "exclude_co2"
+                             max_compounds=5,
+                             probability_threshold=0.05,
+                             scale_highest=0.001, # how much to scale the highest components
+                             ceiling = 3000):   #ceiling percent larger than the median average
         
-        nodes = list(concs.keys())
-        temp_concs = copy.deepcopy(concs)             
-
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)] 
+        concs = copy.deepcopy(init_concs)     # don't modify the original  
         if co2 == False:
-            del temp_concs['CO2']
-        print({k:v for k,v in temp_concs.items() if v >0})
+            del concs['CO2'] # CO2 will always be too large as it is the background
+        #house keeping:
+        num_not_zero = len([x for x in concs.values() if x > 0])
+        if max_compounds > num_not_zero:
+            max_compounds = num_not_zero
             
-        def _rankings(new_concs):
+        #scale the probabilities accordingly based upon a ceiling percentage
         
-            max_val= np.max(list([v for k,v in temp_concs.items() if not k == 'CO2']))
-        
-            ceiling_values = {k:((max_val-v)/v)*100 for k,v in temp_concs.items() if not v == 0}
-        
-            below_ceiling = [k for k,v in ceiling_values.items() if v <= ceiling ]
+        median_conc = np.median([v for v in concs.values()]) # median > mean for this 
+        new_concs = {}
+        above_ceiling = {k:v for k,v in concs.items() if v > (median_conc * (1+(ceiling/100)))}
+        #modify the ceiling by scaling it down to a suitable value 
+        #should still max out if concentrations become way to high 
+        for k,v in above_ceiling.items():
+            concs[k] = v*scale_highest
             
-            probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
-        
-            available = [choice(list(temp_concs.keys()),
-                    len(temp_concs),
-                    p=list(probabilities.values()))][0]
-            
-            return(available,probabilities)
-        
-        num_species = len([x for x in temp_concs.values() if x > 0])
-        if max_compounds > num_species:
-                #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
-            max_compounds = num_species
-        
-        available,probabilities = _rankings(temp_concs)
+
+        #get the probabilities based upon relative concentrations:
+        p_1 = {k:v/sum(concs.values()) for k,v in concs.items()}
+        #now filter based upon the probability threshold:
+        p_2 = {k:v for k,v in p_1.items() if v > probability_threshold}
+        p_3 = {k:v/sum(p_2.values()) for k,v in p_2.items()}
+        #make a list of choices based upon the probabilities
+        available = list(np.random.choice(list(p_3.keys()),100,p=list(p_3.values()))) # make this list length of the nodes 
+        # now make a list max_compounds long of random choices based on available
         choices = {}
-        for c in range(max_compounds): 
+        for c in range(max_compounds):
             if c == 0:
-                c1 = random.choice([n for n in nodes if n in available])
-                if probabilities[c1] >= probability_threshold:
-                    choices[c1] = probabilities[c1]
+                choices[c] = np.random.choice(available)
             else:
-                #c2 = random.choice([x for x in available if not x in choices])
-                if choices:
+                try:
+                    for i in range(available.count(choices[c-1])):
+                        available.remove(choices[c-1])
                     try:
-                        del temp_concs[list(choices)[0]]
+                        choices[c] = np.random.choice(available)
                     except:
                         pass
-                    print({k:v for k,v in temp_concs.items() if v >0})
-                    available,probabilities = _rankings(temp_concs)
-                    c2 = random.choice([x for x in available])
-
-                    if probabilities[c2] >= probability_threshold:
-                        choices[c2] = probabilities[c2]
+                except:
+                    pass
+                    
         return(choices)
     
-    def _get_weighted_reaction_rankings(self,T,P,choices,max_rank=5,method='Bellman-Ford'):
+    def _get_weighted_reaction_rankings(self,T,P,
+                                        choices,
+                                        max_rank=5,
+                                        method='Bellman-Ford'):
         rankings = {}
         if len(choices) > 1:
             possibilities = list(nx.shortest_paths.all_shortest_paths(self.graph[T][P],list(choices)[0],list(choices)[1],method=method)) # Bellman-Ford
@@ -251,13 +250,15 @@ class Traversal:
         return(concs,eq)
 
     def random_walk(self,T,P,
-                              probability_threshold=0.05,
-                              path_depth=50,
-                              #concs=None,
-                              max_compounds=5,
-                              max_rank=5,
-                              co2=False,
-                              ceiling=3000):
+                    probability_threshold=0.05,
+                    path_depth=50,
+                    #concs=None,
+                    max_compounds=5,
+                    max_rank=5,
+                    co2=False,
+                    scale_highest=1000,
+                    ceiling=3000,
+                    method='bellman-ford'):
     
         final_concs = {0:copy.deepcopy(self.concs)} 
         reactionstats = {0:None}
@@ -265,10 +266,13 @@ class Traversal:
         for ip in range(1,path_depth+1):
             fcs = copy.deepcopy(final_concs[ip-1])
             try:
-                choices = self._get_weighted_random_compounds(T,P,concs=fcs,
-                                               max_compounds=max_compounds,
-                                               probability_threshold=probability_threshold,
-                                                             co2=co2,ceiling=ceiling)
+                choices = self._get_weighted_random_compounds(T=T,P=P,
+                                                              init_concs=fcs,
+                                                              max_compounds=max_compounds,
+                                                              probability_threshold=probability_threshold,
+                                                              co2=co2,
+                                                              scale_highest=scale_highest,
+                                                              ceiling=ceiling)
             except:
                 path_depth = ip+1
                 break
@@ -276,7 +280,11 @@ class Traversal:
                 path_depth = ip+1
                 break
         
-            rankings = self._get_weighted_reaction_rankings(T,P,choices,max_rank=max_rank,method='bellman-ford')
+            rankings = self._get_weighted_reaction_rankings(T=T,P=P,
+                                                            choices=choices,
+                                                            max_rank=max_rank,
+                                                            method=method)
+            #print(rankings)
         
             if not rankings:
                 break
@@ -295,21 +303,37 @@ class Traversal:
                     break   # extra break
                     
             final_concs[ip],reactionstats[ip] = self.equilibrium_concentrations(fcs,eqsyst)
+            
         return({'data':final_concs[list(final_concs)[-1]],
                 'equation_statistics':[r for r in reactionstats.values() if not r==None],
                 'path_length':len([r for r in reactionstats.values() if not r==None])})  
     
     
-    def _queue_function(self,pbari,samples,T,P,probability_threshold,path_depth,max_compounds,max_rank,co2,ceiling,out_q):
+    def _queue_function(self,
+                        pbari,
+                        samples,T,P,
+                        probability_threshold,
+                        path_depth,
+                        max_compounds,
+                        max_rank,
+                        co2,
+                        scale_highest,
+                        ceiling,
+                        method,
+                        out_q):
+        
         sample_data = {}
         with tqdm(total=len(samples),bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
             for sample in samples:
-                sample_data[sample] = self.random_walk(T=T,P=P,probability_threshold=probability_threshold,
-                                                                        path_depth=path_depth,
-                                                                        max_compounds=max_compounds,
-                                                                        max_rank=max_rank,
-                                                                        co2=co2,
-                                                                        ceiling=ceiling)
+                sample_data[sample] = self.random_walk(T=T,P=P,
+                                                       probability_threshold=probability_threshold,
+                                                       path_depth=path_depth,
+                                                       max_compounds=max_compounds,
+                                                       max_rank=max_rank,
+                                                       co2=co2,
+                                                       scale_highest=scale_highest,
+                                                       ceiling=ceiling,
+                                                       method=method)
                 pbar.update(1)
                     
         out_q.put(sample_data)
@@ -335,7 +359,9 @@ class Traversal:
                                         self.max_compounds,
                                         self.max_rank,
                                         self.co2,
+                                        self.scale_highest,
                                         self.ceiling,
+                                        self.method,
                                         out_queue))
             jobs.append(process)
             process.start()
@@ -379,16 +405,20 @@ version:1.2
         ->max_rank = {}
         ->path_depth = {}
         ->co2 = {}
-        ->number of processes = {}\n'''.format(str(datetime.now()),self.sample_length,
-                                           self.probability_threshold,self.max_compounds,
-                                           self.max_rank,self.path_depth,self.co2,
-                                               self.nprocs,self.ceiling))
+        ->shortest path method = {}
+        ->number of processes = {}
+        ->concentration ceiling = {} %
+        ->scale highest = {}\n'''.format(str(datetime.now()),self.sample_length,
+                                       self.probability_threshold,self.max_compounds,
+                                       self.max_rank,self.path_depth,self.co2,self.method,
+                                       self.nprocs,self.ceiling,self.scale_highest))
         
         print('initial concentrations (ppm):\n')
         self.concs = ic
         concstring = pd.Series({k:v for k,v, in self.concs.items() if v > 0}) / 1e-6
         del concstring['CO2']
-        print(concstring.to_string())
+        print(concstring.to_string()+'\n')
+        
         
             
         total_data = {}
@@ -396,12 +426,12 @@ version:1.2
             data_2 = {}
             for P in prange:
                 start = datetime.now()
-                print('{}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
+                print('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
                 data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
                 finish = datetime.now() - start
                 print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
                 mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
-                print('final concentrations (>0.5ppm):\n')
+                print('\n final concentrations (>0.5ppm):\n')
                 print(mean.to_string())
                 avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
                 print('\n median path length: {}'.format(avgpathlength))
@@ -415,21 +445,24 @@ version:1.2
                 today = str(date.today())
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
-        self.metadata = {'co2':self.co2,
+        self.metadata = {'init_concs':self.concs,
+                         'co2':self.co2,
                          'max_compounds':self.max_compounds,
                          'probability_threshold':self.probability_threshold,
+                         'shortest_path_method':self.method,
                          'max_rank':self.max_rank,
                          'sample_length':self.sample_length,
                          'path_depth':self.path_depth,
                          'random_path_depth':self.random_path_depth,
                          'nprocs':self.nprocs,
-                         'ceiling':self.ceiling}
+                         'ceiling':self.ceiling,
+                         'scale_highest':self.scale_highest,
+                         'platform':platform.platform(),
+                         'python_version':platform.python_version(),
+                         'processor':platform.processor(),
+                         'available_cores':psutil.cpu_count(),
+                         'available_memory':str(int(psutil.virtual_memory()[0] / 1000/1000/1000))+'Gb',
+                         'date':str(datetime.now())}
         
-        self.metadata['platform'] = platform.platform()
-        self.metadata['python_version'] = platform.python_version()
-        self.metadata['processor'] = platform.processor()
-        self.metadata['available_cores'] = psutil.cpu_count()
-        self.metadata['available_memory'] = str(int(psutil.virtual_memory()[0] / 1000/1000/1000))+'Gb'
-        self.metadata['date'] = str(datetime.now())
        
         self.data = total_data                    

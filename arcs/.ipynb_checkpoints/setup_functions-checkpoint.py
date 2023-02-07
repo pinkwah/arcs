@@ -431,9 +431,10 @@ class GenerateInitialConcentrations:
             print('need graph or list of compounds')
 
     def all_random(self,include_co2=True):
-        if self.compounds:
+        try:
+            hasattr(self.compounds,'compounds')
             compounds = self.compounds
-        else:
+        except:
             compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
         ic = {c:np.random.random()/1e5 for c in compounds}
         if not include_co2==True:
@@ -441,9 +442,10 @@ class GenerateInitialConcentrations:
         self.ic = ic
     
     def all_zero(self,include_co2=True):
-        if self.compounds:
+        try:
+            hasattr(self.compounds,'compounds')
             compounds = self.compounds
-        else:
+        except:
             compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
         ic = {c:0 for c in compounds}
         if not include_co2==True:
@@ -451,9 +453,10 @@ class GenerateInitialConcentrations:
         self.ic = ic
 
     def specific_random(self,compounds=None):
-        if self.compounds:
+        try:
+            hasattr(self.compounds,'compounds')
             compounds = self.compounds
-        else:
+        except:
             full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
         ic = {}
         for c in full_list:
@@ -467,7 +470,7 @@ class GenerateInitialConcentrations:
     def update_ic(self,update_dict,include_co2=True):
         ''' update dict = {'CO2':1e-6,'H2O':300e-5} etc.'''
         try:
-            hasattr(self.ic)
+            hasattr(self.ic,'ic')
         except:
             self.all_zero(include_co2=include_co2)
         for k,v in update_dict.items():
