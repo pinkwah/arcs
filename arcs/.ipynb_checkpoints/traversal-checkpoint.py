@@ -55,7 +55,7 @@ class Traversal:
         self.nprocs = 4    
         self.ceiling = 3000
         self.scale_highest=0.001
-        self.method='bellman-ford'
+        self.method='Bellman-Ford'
         
 
         
@@ -63,44 +63,44 @@ class Traversal:
         
     
 #    ######################################################################################################################################################        
-#    def _get_weighted_random_compounds_DEPRECATED(self,T,P,
-#                                       concs=None,
-#                                       co2=False,
-#                                       max_compounds=2,
-#                                       probability_threshold=0.05,
-#                                       ceiling=1000):     # doesnt' include looping
-#        # 1. choose a compound
-#        # 2. choose another compound
-#        
-#        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-#        temp_concs = copy.deepcopy(concs)            
+    def _get_weighted_random_compounds_DEPRECATED(self,T,P,
+                                       concs=None,
+                                       co2=False,
+                                       max_compounds=2,
+                                       probability_threshold=0.05,
+                                       ceiling=1000):     # doesnt' include looping
+        # 1. choose a compound
+        # 2. choose another compound
+        
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        temp_concs = copy.deepcopy(concs)            
 
-#        if co2 == False:
-#            del temp_concs['CO2']
-#            
-#        probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
-#        available = [choice(list(temp_concs.keys()),
-#                len(temp_concs),
-#                p=list(probabilities.values()))][0]
-#        num_species = len([x for x in temp_concs.values() if x > 0])
-#        if max_compounds > num_species:
-#            #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
-#            max_compounds = num_species
-#            
-#            
-#        choices = {}
-#        for c in range(max_compounds): 
-#            if c == 0:
-#                c1 = random.choice([n for n in nodes if n in available])
-#                if probabilities[c1] >= probability_threshold:
-#                    choices[c1] = probabilities[c1]
-#            else:
-#                #c2 = random.choice([x for x in available if not x in choices])
-#                c2 = random.choice([x for x in available])
-#
-#                if probabilities[c2] >= probability_threshold:
-#                    choices[c2] = probabilities[c2]
-#        return(choices)
+        if co2 == False:
+            del temp_concs['CO2']
+            
+        probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
+        available = [choice(list(temp_concs.keys()),
+                len(temp_concs),
+                p=list(probabilities.values()))][0]
+        num_species = len([x for x in temp_concs.values() if x > 0])
+        if max_compounds > num_species:
+            #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
+            max_compounds = num_species
+            
+            
+        choices = {}
+        for c in range(max_compounds): 
+            if c == 0:
+                c1 = random.choice([n for n in nodes if n in available])
+                if probabilities[c1] >= probability_threshold:
+                    choices[c1] = probabilities[c1]
+            else:
+                #c2 = random.choice([x for x in available if not x in choices])
+                c2 = random.choice([x for x in available])
+
+                if probabilities[c2] >= probability_threshold:
+                    choices[c2] = probabilities[c2]
+        return(choices)
     
     
     def _get_weighted_random_compounds(self,T,P,
@@ -142,13 +142,15 @@ class Traversal:
         choices = {}
         for c in range(max_compounds):
             if c == 0:
-                choices[c] = np.random.choice(available)
+                c1 = np.random.choice(available)
+                choices[c1] = p_3[c1]
             else:
                 try:
-                    for i in range(available.count(choices[c-1])):
-                        available.remove(choices[c-1])
+                    for i in range(available.count(list(choices)[c-1])):
+                        available.remove(list(choices)[c-1])
                     try:
-                        choices[c] = np.random.choice(available)
+                        c2 = np.random.choice(available)
+                        choices[c2] = p_3[c2]
                     except:
                         pass
                 except:
@@ -162,7 +164,9 @@ class Traversal:
                                         method='Bellman-Ford'):
         rankings = {}
         if len(choices) > 1:
-            possibilities = list(nx.shortest_paths.all_shortest_paths(self.graph[T][P],list(choices)[0],list(choices)[1],method=method)) # Bellman-Ford
+            
+            possibilities = list(nx.shortest_paths.all_shortest_paths(self.graph[T][P],list(choices)[0],list(choices)[1],method=method))
+            
             for x in possibilities:
                 candidates = list(self.graph[T][P][x[1]])
                 if len(choices) > 2:
@@ -279,22 +283,18 @@ class Traversal:
             if len(choices) <= 1: # not sure this is necessary....
                 path_depth = ip+1
                 break
-        
             rankings = self._get_weighted_reaction_rankings(T=T,P=P,
                                                             choices=choices,
                                                             max_rank=max_rank,
-                                                            method=method)
-            #print(rankings)
-        
+                                                            method=method)        
             if not rankings:
                 break
-        
             weights = {k:1/rankings[k]['weight'] for k in rankings}
             probabilities = {k:v/sum(weights.values()) for k,v in weights.items()}
             chosen_reaction = random.choice([choice(list(probabilities.keys()),
                                 len(probabilities),
                                 p=list(probabilities.values()))][0])
-
+            
             eqsyst = self.generate_eqsystem(chosen_reaction,T,P)
             # if reaction was previous reaction then break
             path_available = [r for r in reactionstats.values() if not r==None]
