@@ -420,7 +420,7 @@ version:1.2
         print(concstring.to_string()+'\n')
         
         
-            
+        path_lengths = [] 
         total_data = {}
         for T in trange:
             data_2 = {}
@@ -435,6 +435,7 @@ version:1.2
                 print(mean.to_string())
                 avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
                 print('\n median path length: {}'.format(avgpathlength))
+                path_lengths.append(avgpathlength)
                 num+=1
             total_data[T] = data_2
                 
@@ -446,6 +447,7 @@ version:1.2
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
         self.metadata = {'init_concs':self.concs,
+                         'avg_path_length':np.mean(path_lengths),
                          'co2':self.co2,
                          'max_compounds':self.max_compounds,
                          'probability_threshold':self.probability_threshold,
