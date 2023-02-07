@@ -16,36 +16,43 @@ import os
 from monty.serialization import loadfn,dumpfn
 import matplotlib
 
-def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean_percentages=None,reduce_compounds=True,init_concs=None,legend=True):
+def plot_difference(axis,
+                    mean_data,
+                    temperature,
+                    pressure,
+                    threshold,
+                    ymin,
+                    ymax,
+                    mean_percentages=None,
+                    reduce_compounds=True,
+                    init_concs=None,
+                    legend=True):
+    
     ax=axis
     T = temperature  
     P = pressure
     
     if reduce_compounds == True:
-        df = mean_data[T][P][mean_data[T][P] != 0]
-        dfp = mean_data[T][P][mean_data[T][P] >=threshold]
-        dfn = mean_data[T][P][mean_data[T][P] <=-threshold]
+        md = pd.DataFrame(mean_data[T][P]).T
+        df = md[md['value'] != 0]
+        dfp = md[md['value'] >=threshold]
+        dfn = md[md['value'] <=-threshold]
         df_t = {T:{P:pd.concat([dfn,dfp])}}
         #del df_t[T][P]['CO2']
         for x in init_concs:
             if not x == 'CO2':
                 if x not in df_t[T][P] and not init_concs[x] == 0:
-                    df_t[T][P][x] = 0.0            
+                    df_t[T][P][x]['value'] = 0.0            
     else:
         df_t = mean_data
-    
-    
-    norm = colors.Normalize(vmin = ymin, vmax = ymax)
-    cmap = matplotlib.cm.RdBu
-    colours = [cmap(norm(y)) for x,y in df_t[T][P].items()]
-    
-    df_t[T][P].plot(kind='bar',ax=ax,color=colours)
+
+    df_t[T][P].plot(kind='bar',y='value',yerr='variance',ax=ax)#,color=colours)
 
     #ax.set_yscale('symlog')
     label_names = []
     charged_species = {'CO3H':'-','NH4':'+','NH2CO2':'-'}
     separater = ''
-    for label in list(df_t[T][P].keys()):
+    for label in list(df_t[T][P]['value'].keys()):
         data = []
         for i,x in enumerate(label):
             try:
@@ -61,7 +68,7 @@ def plot_difference(axis,mean_data,temperature,pressure,threshold,ymin,ymax,mean
     ax.set_xticklabels(label_names,rotation=80)
     ax.set_ylim(ymin,ymax)
     ax.set_yticks(np.linspace(ymin,ymax,5))
-    ppm_labels = ['{:.1F}'.format(x/1e-6) for x in ax.get_yticks()]
+    ppm_labels = ['{:.1F}'.format(x) for x in ax.get_yticks()]
     ax.set_yticklabels(ppm_labels)
     ax.axhline(0,color='k')
     rects = ax.patches

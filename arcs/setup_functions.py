@@ -417,28 +417,44 @@ class GraphGenerator:
         print('graph saved to: {}'.format(filename))
 
 class GenerateInitialConcentrations:
+    
+    '''all concentrations are given in x10^-6 (ppm)'''
 
-    def __init__(self,graph):
-        self.graph = graph
-        self.T = list(graph)[0] # dummy temp
-        self.P = list(graph[self.T])[0] # dummy pressure
+    def __init__(self,graph=None,compounds=None):
+        if graph:
+            self.graph = graph
+            self.T = list(graph)[0] # dummy temp
+            self.P = list(graph[self.T])[0] # dummy pressure
+        elif compounds:
+            self.compounds = compounds
+        else:
+            print('need graph or list of compounds')
 
     def all_random(self,include_co2=True):
-        compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
-        ic = {c:np.random.random()/1e6 for c in compounds}
+        if self.compounds:
+            compounds = self.compounds
+        else:
+            compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
+        ic = {c:np.random.random()/1e5 for c in compounds}
         if not include_co2==True:
             ic['CO2'] = 1
         self.ic = ic
     
     def all_zero(self,include_co2=True):
-        compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
+        if self.compounds:
+            compounds = self.compounds
+        else:
+            compounds = [node for node in self.graph[self.T][self.P].nodes() if isinstance(node,str)]
         ic = {c:0 for c in compounds}
         if not include_co2==True:
             ic['CO2'] = 1
         self.ic = ic
 
     def specific_random(self,compounds=None):
-        full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
+        if self.compounds:
+            compounds = self.compounds
+        else:
+            full_list = [n for n in self.graph[self.T][self.P].nodes() if isinstance(n,str)]
         ic = {}
         for c in full_list:
             if c  in self.compounds:
@@ -448,10 +464,12 @@ class GenerateInitialConcentrations:
         ic['CO2'] = 1
         self.ic = ic
     
-    def update_ic(self,update_dict):
+    def update_ic(self,update_dict,include_co2=True):
         ''' update dict = {'CO2':1e-6,'H2O':300e-5} etc.'''
-        if not self.ic:
-            self.all_zero(include_co2=True)
+        try:
+            hasattr(self.ic)
+        except:
+            self.all_zero(include_co2=include_co2)
         for k,v in update_dict.items():
             self.ic[k] = v
         
