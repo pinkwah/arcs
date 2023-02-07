@@ -53,8 +53,8 @@ class Traversal:
         self.path_depth=20
         self.random_path_depth=False
         self.nprocs = 4    
-        self.ceiling = 3000
-        self.scale_highest=0.001
+        self.ceiling = 2000
+        self.scale_highest=0.1
         self.method='Bellman-Ford'
         
 
@@ -108,7 +108,7 @@ class Traversal:
                              co2=False, # should probably be "exclude_co2"
                              max_compounds=5,
                              probability_threshold=0.05,
-                             scale_highest=0.001, # how much to scale the highest components
+                             scale_highest=0.1, # how much to scale the highest components
                              ceiling = 3000):   #ceiling percent larger than the median average
         
         nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)] 
@@ -122,8 +122,8 @@ class Traversal:
             
         #scale the probabilities accordingly based upon a ceiling percentage
         
-        median_conc = np.median([v for v in concs.values()]) # median > mean for this 
-        new_concs = {}
+        median_conc = np.median([v for v in concs.values() if v > 0]) # median > mean for this 
+        #new_concs = {}
         above_ceiling = {k:v for k,v in concs.items() if v > (median_conc * (1+(ceiling/100)))}
         #modify the ceiling by scaling it down to a suitable value 
         #should still max out if concentrations become way to high 
