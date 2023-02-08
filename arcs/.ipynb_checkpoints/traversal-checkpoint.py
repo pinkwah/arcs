@@ -39,6 +39,7 @@ class Traversal:
             self.reactions = pickle.load(open(reactions,'rb'))
         else:
             self.reactions = reactions
+        #self.concs = copy.deepcopy(concs) # saves having to reload the class each time
         self.trange = list(self.graph)
         self.prange = list(self.graph[self.trange[0]])
 
@@ -55,10 +56,53 @@ class Traversal:
         self.ceiling = 2000
         self.scale_highest=0.1
         self.method='Bellman-Ford'
-        self.final_concs = {}        
+        self.final_concs = {}
+        
+
+        
+        # have an "update default values function"
+        
     
-#########################################################################################################################################        
-  
+#    ######################################################################################################################################################        
+    def _get_weighted_random_compounds_DEPRECATED(self,T,P,
+                                       concs=None,
+                                       co2=False,
+                                       max_compounds=2,
+                                       probability_threshold=0.05,
+                                       ceiling=1000):     # doesnt' include looping
+        # 1. choose a compound
+        # 2. choose another compound
+        
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        temp_concs = copy.deepcopy(concs)            
+
+        if co2 == False:
+            del temp_concs['CO2']
+            
+        probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
+        available = [choice(list(temp_concs.keys()),
+                len(temp_concs),
+                p=list(probabilities.values()))][0]
+        num_species = len([x for x in temp_concs.values() if x > 0])
+        if max_compounds > num_species:
+            #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
+            max_compounds = num_species
+            
+            
+        choices = {}
+        for c in range(max_compounds): 
+            if c == 0:
+                c1 = random.choice([n for n in nodes if n in available])
+                if probabilities[c1] >= probability_threshold:
+                    choices[c1] = probabilities[c1]
+            else:
+                #c2 = random.choice([x for x in available if not x in choices])
+                c2 = random.choice([x for x in available])
+
+                if probabilities[c2] >= probability_threshold:
+                    choices[c2] = probabilities[c2]
+        return(choices)
+    
     
     def _get_weighted_random_compounds(self,T,P,
                              init_concs=None,
@@ -140,6 +184,40 @@ class Traversal:
             return(pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()) # sort them according to lowest weight first
         else:
             return(None)
+        
+
+    def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct == True:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
+
+    def _random_choice_connected(self,T,P,force_direct=False,previous_index=None,co2=False): # this will be joined - I think we can also make a ranking of potential reactions based upon components in the stream as well 
+        if previous_index == None:
+            raise ValueError('no previous compound selected')
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct == True:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=present)
+                target = random.choice(nodes) # the next path will be random 
+                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
     
     def generate_eqsystem(self,index,T,P):
         charged_species = {'CO3H':-1,'NH4':+1,'NH2CO2':-1} # this needs to be added to the arguments
@@ -267,9 +345,7 @@ class Traversal:
         init_concs = copy.deepcopy(self.concs)
         result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
         #start the queue
-        #out_queue = pmp.Queue() # previous
-        manager = pmp.Manager()
-        out_queue = manager.Queue()
+        out_queue = pmp.Queue()
         samples = list(range(1,self.sample_length+1,1))
         data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
                             for i in range(self.nprocs) 
@@ -301,32 +377,13 @@ class Traversal:
         for proc in jobs:
             proc.join()
 
-        #out_queue.close()
+        out_queue.close()
+        
+
 
         return(result_dict) 
-    
-    def sampling_serial(self,T=None,P=None,**kw):
-        init_concs = copy.deepcopy(self.concs)
-        result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
         
-        with tqdm(total=self.sample_length,bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
-            for sample in range(self.sample_length):
-                result_dict[sample+1] = self.random_walk(T=T,P=P,
-                                                       probability_threshold=self.probability_threshold,
-                                                       path_depth=self.path_depth,
-                                                       max_compounds=self.max_compounds,
-                                                       max_rank=self.max_rank,
-                                                       co2=self.co2,
-                                                       scale_highest=self.scale_highest,
-                                                       ceiling=self.ceiling,
-                                                       method=self.method)
-                pbar.update(1)
-        return(result_dict)
-        
-        
-    def run(self,trange,prange,ic=None,save=False,savename=None,ignore_warnings=True,**kw):
-        if ignore_warnings==True:
-            warnings.filterwarnings("ignore")
+    def run(self,trange,prange,ic=None,save=False,savename=None,**kw):
         '''
         kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,nprocs,random_path_depth,co2=False
         '''
@@ -377,10 +434,7 @@ version:1.2
             for P in prange:
                 start = datetime.now()
                 print('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
-                if self.nprocs > 1:
-                    data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
-                else:
-                    data_2[P] = self.sampling_serial(T,P,**kw)
+                data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
                 finish = datetime.now() - start
                 print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
                 mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
@@ -402,7 +456,7 @@ version:1.2
                 today = str(date.today())
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
-        self.metadata = {'arcs_version':1.2,
+        self.metadata = {'init_concs':self.concs,
                          'avg_path_length':np.mean(path_lengths),
                          'co2':self.co2,
                          'max_compounds':self.max_compounds,
