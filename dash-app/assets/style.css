@@ -1,0 +1,19 @@
+.Select-control {
+    background-color:rgba(25, 25, 25,0.1) !important;
+    color:white;
+}  
+
+.Select-value-label {
+    color: white !important;
+}
+
+.Select-menu-outer {
+    background-color:rgba(25, 25, 25,0.8) !important;
+    color: white;
+}
+
+.table-hover > tbody > tr:hover > * {
+  
+    color:yellow;
+}
+
