@@ -2,6 +2,8 @@ import dash
 #import dash_core_components as dcc
 #import dash_html_components as html
 import dash_bootstrap_components as dbc
+import webbrowser
+from threading import Timer
 from dash_bootstrap_templates import load_figure_template
 from dash import html
 from dash import dash_table
@@ -647,11 +649,13 @@ def apprun(btn1):
 
     
             
-              
+def open_browser():
+    webbrowser.open_new("http://localhost:{}".format(8000))
 
 if __name__ == '__main__':
     #app.run_server()
-    app.run_server(debug = False)  
+    Timer(1,open_browser).start()
+    app.run_server(debug = False,port=8000)  
 
 
 
