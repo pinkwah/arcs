@@ -621,13 +621,13 @@ def apprun(btn1):
             fixed_rows={'headers': True},
             style_cell_conditional=[
                     {'if': {'column_id': 'Paths'},
-                     'width': '30%',
+                     'width': '60%',
                     'textAlign':'left'},
                     {'if': {'column_id': ['k']},
-                     'width': '20%',
+                     'width': '30%',
                     'textAlign':'left'},
                     {'if': {'column_id': ['Frequency']},
-                     'width': '20%',
+                     'width': '10%',
                     'textAlign':'left'}],
             markdown_options={'html':True,"link_target":"_self"}
                                     )
@@ -674,4 +674,10 @@ def open_browser():
 if __name__ == '__main__':
     #app.run_server()
     Timer(1,open_browser).start()
-    app.run_server(debug = False,port=8000)  
+    app.run_server(debug = True,port=8000)  
+
+
+
+
+
+import plotly.figure_factory as ff
