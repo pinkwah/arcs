@@ -55,7 +55,8 @@ class Traversal:
         self.ceiling = 2000
         self.scale_highest=0.1
         self.method='Bellman-Ford'
-        self.final_concs = {}        
+        self.final_concs = {} 
+        self.initfinaldiff = {}
     
 #########################################################################################################################################        
   
@@ -374,6 +375,7 @@ version:1.2
         for T in trange:
             data_2 = {}
             final_concs_2 = {}
+            initfinaldiff = {}
             for P in prange:
                 start = datetime.now()
                 print('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
@@ -385,15 +387,21 @@ version:1.2
                 print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
                 mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
                 print('\n final concentrations (>0.5ppm):\n')
-                print(mean.to_string())
+                print(mean.round(1).to_string())
                 final_concs_2[P] = mean.to_dict()
+                diff_concs = pd.Series(mean.to_dict()) - pd.Series({k:v/1e-6 for k,v in self.concs.items()})
+                ift = pd.DataFrame([{k:v/1e-6 for k,v in self.concs.items() if v > 0},mean.to_dict(),diff_concs.to_dict()],index=['initial','final','change']).T
+                initfinaldiff[P] = ift.dropna(how='all').fillna(0.0).to_dict()
                 avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
+                #print('\n initial | final | difference in concentrations (>0.5ppm):\n')
+                #print(initfinaldiff[P].round(1).to_string())
+
                 print('\n median path length: {}'.format(avgpathlength))
                 path_lengths.append(avgpathlength)
                 num+=1
             total_data[T] = data_2
             self.final_concs[T] = final_concs_2
-            
+            self.initfinaldiff[T] = initfinaldiff            
                 
         if save == True:
             from monty.serialization import dumpfn
@@ -402,7 +410,7 @@ version:1.2
                 today = str(date.today())
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
-        self.metadata = {'arcs_version':1.2,
+        self.metadata = {'arcs_version':1.3,
                          'avg_path_length':np.mean(path_lengths),
                          'co2':self.co2,
                          'max_compounds':self.max_compounds,

@@ -22,12 +22,18 @@ from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
 import pickle
 import warnings
-
+import plotly.figure_factory as ff
+import networkx as nx 
+import plotly.graph_objects as go
 
 external_stylesheets = [
-     dbc.themes.QUARTZ, 
+     #dbc.themes.QUARTZ, 
+     #dbc.themes.MORPH
+     dbc.themes.QUARTZ
 ]
 
+#load_figure_template('QUARTZ')
+#load_figure_template('MORPH')
 load_figure_template('QUARTZ')
 
 ######data and sliders
@@ -46,6 +52,16 @@ def keys_by_depth(dict_, depth=0, output=None):
         if isinstance(dict_[key], dict):
             keys_by_depth(dict_[key], depth+1, output)
     return output  
+
+def _markdown_compound(_string):
+    md = []
+    for i in _string:
+        try:
+            int(i)
+            md.append('<sub>{}</sub>'.format(int(i)))
+        except:
+            md.append(i)
+    return(''.join(md))
 
 def make_sliders(import_data,labels):
     
@@ -88,17 +104,16 @@ def make_sliders(import_data,labels):
 
 
 #run data fields
-g = pickle.load(open('./assets/data/SCAN_graph.p','rb'))
-t = Traversal(graph=g,reactions='./assets/data/SCAN_reactions.p')
+g = pickle.load(open('./assets/data/SCAN_graph_temp.p','rb'))
+t = Traversal(graph=g,reactions='./assets/data/SCAN_reactions_temp.p')
 
-backgroundcolours='rgba(0,0,0,0.1)'
-graph = None
-table = None
-table2 = None
-table3 = None
-table4 = None
-table5 = None
-meta = None
+graph = dbc.Alert('No Data',color='light')# None #html.P('None')
+table = dbc.Alert('No Data',color='light')# None #html.P('None')
+table2 =dbc.Alert('No Data',color='light')# None #html.P('None')
+table3 =dbc.Alert('No Data',color='light')# None #html.P('None')
+table4 =dbc.Alert('No Data',color='light')# None #html.P('None')
+table5 =dbc.Alert('No Data',color='light')# None #html.P('None')
+meta = dbc.Alert('No Data',color='light')#None #html.P('None')
 sliders = make_sliders(g,labels={0:'T (K)',1:'P (bar)'})
 gic = GenerateInitialConcentrations(g)
 gic.all_zero(include_co2=False)
@@ -115,11 +130,19 @@ settings = {'nprocs':1,
 ambient_settings = {'T':None,'P':None}
 
 
+backgroundcolours='rgba(100,100,120,0.5)'
 
+boxstyle = {'align':'flex',
+            #'boxShadow': '1px 1px 1px 1px', 
+            #'border-radius': '5px',
+            'padding':'2%',
+            'backgroundColor':backgroundcolours }
+           #}
 
+width={'offset':1,'size':5}
+width={'size':5}
 
-
-
+rowclass = 'Row'
 
 
 
@@ -132,33 +155,33 @@ app.layout = html.Div(
     dcc.Loading(
         id="loading-1", 
         type='cube',
-        color='lightblue',
         fullscreen=True,
         children=html.Div(id="loading-output-1"),
         style={'background-color':'rgba(0.1,0.1,0.1,0.5)'}
         ),
     dbc.Row(
-        className='Row',
+        className=rowclass,
         style={'margin':'1rem','display':'flex','justify-content': 'space-between','flex-wrap': 'wrap'},
         children=[
             #1st column
-            dbc.Col(style={'align':'flex',
-                            'boxShadow': '2px 2px 2px 2px pink', 
-                            'border-radius': '5px',
-                            'padding':'1rem',
-                            'backgroundColor':backgroundcolours},
+            dbc.Col(style=boxstyle,
                      children=[
                          html.H5('Control'),
                          dbc.Row(
+                             align='start',
+                             className=rowclass,
                              children=sliders
                          ),
                          dbc.Row(
+                             className=rowclass,
+                             align='center',
                              style={'padding':'2rem',
                                    'align':'center'},
+                             justify=True,
                              children = [
                                  dbc.Col(
                                      children = [
-                                         html.H6('Concentrations (PPM)'),
+                                         html.H6('Input Concentrations (PPM)'),
                                          html.Div(
                                              style={'padding':'0.5rem'},
                                              children=dcc.Textarea(id='concs-out',
@@ -176,8 +199,7 @@ app.layout = html.Div(
                                                     id='concs-submit',
                                                     n_clicks=0,
                                                     className="me-1",
-                                                    color='Primary')
-
+                                                    color='Primary'),
                                      ]
                                  ),
                                  #########################settings
@@ -193,11 +215,11 @@ app.layout = html.Div(
                                                                  debounce=True,
                                                                  style={'backgroundColor':backgroundcolours,
                                                                         'color':'white',
-                                                                        'border':'2px white solid'}
+                                                                        'border':'2px white solid'},
                                                                 )]),
                                          html.Div(
                                              style={'padding':'0.5rem'},
-                                             children=[html.P('path depth:'),
+                                             children=[html.P('Maximum Path Depth:'),
                                                        dcc.Input(id='pathdepth',
                                                                  value="5",
                                                                  debounce=True,
@@ -207,9 +229,9 @@ app.layout = html.Div(
                                                                 )]),
                                          html.Div(
                                              style={'padding':'0.5rem'},
-                                             children=[html.P('probability cutoff (max=1):'),
+                                             children=[html.P('Percentage Cutoff:'),
                                                        dcc.Input(id='probability_cutoff',
-                                                                 value="0.01",
+                                                                 value="1",
                                                                  debounce=True,
                                                                  style={'backgroundColor':backgroundcolours,
                                                                         'color':'white',
@@ -229,10 +251,11 @@ app.layout = html.Div(
                                          
                                          html.Div(
                                              style={'padding':'0.5rem'},
-                                             children=[html.P('scale large concentrations:'),
+                                             children=[html.P('Scale Large Concentrations:'),
                                                        dcc.Input(id='scale_highest',
                                                                  value="0.1",
                                                                  debounce=True,
+                                                                 className='me-1',
                                                                  style={'backgroundColor':backgroundcolours,
                                                                         'color':'white',
                                                                         'border':'2px white solid'}
@@ -245,7 +268,7 @@ app.layout = html.Div(
                                          html.H6(' '),
                                          html.Div(
                                              style={'padding':'0.5rem'},
-                                             children=[html.P('max rank:'),
+                                             children=[html.P('Maximum Reaction Rankings:'),
                                                        dcc.Input(id='max_rank',
                                                                  value="10",
                                                                  debounce=True,
@@ -255,7 +278,7 @@ app.layout = html.Div(
                                                                 )]),
                                          html.Div(
                                              style={'padding':'0.5rem'},
-                                             children=[html.P('max compounds:'),
+                                             children=[html.P('Maximum Number of Compounds Chosen:'),
                                                        dcc.Input(id='max_compounds',
                                                                  value="5",
                                                                  debounce=True,
@@ -265,7 +288,7 @@ app.layout = html.Div(
                                                                 )]),    
                                          html.Div(
                                              style={'padding':'0.5rem','width':'15rem'},
-                                             children=[html.P('shortest path algorithm:'),
+                                             children=[html.P('Shortest Path Algorithm:'),
                                                        dcc.Dropdown(
                                                            id='method',
                                                           # style={'backgroundColor':backgroundcolours,
@@ -277,7 +300,7 @@ app.layout = html.Div(
                                                       ]),  
                                          html.Div(
                                              style={'padding':'0.5rem','width':'15rem'},
-                                             children=[html.P(['include CO',html.Sub(2),':']),
+                                             children=[html.P(['Include CO',html.Sub(2),' in Choice?',':']),
                                                        dcc.Dropdown(
                                                            id='include_co2',
                                                            #style={'backgroundColor':backgroundcolours,
@@ -295,22 +318,29 @@ app.layout = html.Div(
                                                                  id='submit-val',
                                                                  n_clicks=0,
                                                                  className="me-1",
-                                                                 color='Primary')
+                                                                 outline=False,
+                                                                 color='primary')
                                          )
                                      ]
                                  )
                              ]
-                         )
+                         ),
+                         dbc.Row(
+                             align='end',
+                             children=[
+                                 html.H5('Concentration Evolution:'),
+                                 html.Div(
+                                     id = 'final_concs',
+                                     style={'align':'center','size':5},
+                                     children=table5,
+                                 )
+                             ],
+                         ),
                      ],
-                    
                    ),
             #1st column
             dbc.Col(
-                    style={'align':'center',
-                           'boxShadow': '2px 2px 2px 2px pink', 
-                           'border-radius': '5px',
-                           'padding':'1rem', 
-                           'backgroundColor':backgroundcolours},
+                    style=boxstyle,
                     children=[
                         html.H5('Change in Concentrations'),
                         html.Div(id='output-graph',
@@ -329,19 +359,17 @@ app.layout = html.Div(
                                     type='default',
                                     children=html.Div(id='loading-output'))
                              ],
-                width={'offset':1}
+                width=width
                 
                    ),
         ],
     ),
         dbc.Row(
+            className=rowclass,
             style={'margin':'1rem','display':'flex','justify-content': 'space-between','flex-wrap': 'wrap'},
+            justify=True,
             children=[
-            dbc.Col(style={'align':'center',
-                           'boxShadow': '2px 2px 2px 2px pink',  
-                           'border-radius': '5px',
-                           'padding':'1rem',
-                           'backgroundColor':backgroundcolours},
+                dbc.Col(style=boxstyle,
                     children=[
                         html.H5('Most Frequent Reactions'),
                         html.Div(
@@ -350,13 +378,9 @@ app.layout = html.Div(
                             children=table,
                             className='table'
                         )
-                    ]
-                   ),
-            dbc.Col(style={'align':'center',
-                           'boxShadow': '2px 2px 2px 2px pink', 
-                           'border-radius': '5px',
-                           'padding':'1rem',
-                           'backgroundColor':backgroundcolours},
+                    ],
+                       ),#width={'offset':'1rem'}),
+                dbc.Col(style=boxstyle,
                     children=[
                         html.H5('Most Frequent Paths'),
                         html.Div(id = 'reaction-paths',
@@ -365,19 +389,17 @@ app.layout = html.Div(
                                  className='table'
                         )
                     ],
-                    width={'offset':1})
+                    width=width)
         ],   
     ),
         dbc.Row(
+            className=rowclass,
             style={'margin':'1rem','display':'flex','justify-content': 'space-between','flex-wrap': 'wrap'},
+            justify=True,
             children=[
-                dbc.Col(style={'align':'center',
-                               'boxShadow': '2px 2px 2px 2px pink',  
-                               'border-radius': '5px',
-                               'padding':'1rem',
-                               'backgroundColor':backgroundcolours},
+                dbc.Col(style=boxstyle,
                     children=[
-                        html.H5('Meta Data'),
+                        html.H5('System Information'),
                         html.Div(
                             id = 'metadata',
                             style={'align':'center'},
@@ -385,43 +407,15 @@ app.layout = html.Div(
                             #className='table'
                         )
                     ],
+                        width={'offset':0,'size':3},
                    ),
-                dbc.Col(style={'align':'center',
-                               'boxShadow': '2px 2px 2px 2px pink',  
-                               'border-radius': '5px',
-                               'padding':'1rem',
-                               'backgroundColor':backgroundcolours},
-                    children=[
-                        html.H5('Initial Concentrations:'),
-                        html.Div(
-                            id = 'init_concs',
-                            style={'align':'center'},
-                            children=table4,
-                            #className='table'
-                        )
-                    ],
-                        width={'offset':1}
-                   ),
-                dbc.Col(style={'align':'center',
-                               'boxShadow': '2px 2px 2px 2px pink',  
-                               'border-radius': '5px',
-                               'padding':'1rem',
-                               'backgroundColor':backgroundcolours},
-                    children=[
-                        html.H5('Final Concentrations:'),
-                        html.Div(
-                            id = 'final_concs',
-                            style={'align':'center'},
-                            children=table5,
-                            #className='table'
-                        )
-                    ],
-                        width={'offset':1}
-                   ),
+
             ]
         ),               
 
         dbc.Row(
+            className=rowclass,
+            justify=True,
             children=[
                 dbc.Col(
                     children=[
@@ -470,7 +464,7 @@ def update_concentrations(n_clicks,input1):
 def update_settings(*inputs):
     settings['sample_length'] = int(inputs[0])
     settings['path_depth'] = int(inputs[1])
-    settings['probability_threshold'] = float(inputs[2])
+    settings['probability_threshold'] = float(inputs[2])/100
     settings['ceiling'] = int(inputs[3])
     settings['scale_highest'] = float(inputs[4])
     settings['max_rank'] = int(inputs[5])
@@ -491,7 +485,6 @@ def update_t_and_p(*inputs):
 @app.callback([Output('metadata','children'),
                Output('reaction-stats','children'),
                Output('reaction-paths','children'),
-               Output('init_concs','children'),
                Output('final_concs','children'),
                Output('output-graph','children'),
                Output('loading-output-1','children')
@@ -526,62 +519,49 @@ def apprun(btn1):
             style_table={'height': '400px', 
                      'overflowY': 'auto'}
                                     )
-        
-        
-        init_concs = pd.Series(t.concs)[pd.Series(t.concs) > 0].to_dict()
-        ic = {k:float('{:.2F}'.format(v/1e-6)) for k,v in init_concs.items()}
-        
-        del ic['CO2']
-        df_i = pd.Series(ic)
-        df_i = df_i.reset_index()
-        df_i = df_i.T.rename({'index':'compound',0:'concentration (ppm)'})
-        df_i = df_i.T
-        
-        init_concs_table = dash_table.DataTable(
-            columns=[{'name':i,'id':i} for i in df_i.columns],
-            data=df_i.to_dict('records'),
-            style_as_list_view=True,
-            cell_selectable=False,
-            style_cell={'font_family':'helvetica',
-                    'text_align':'center',
-                   'hover-background-color': '#555555'},
-            style_header={'backgroundColor': 'Transparent'},
-            style_data={'backgroundColor': 'Transparent',
-                    'border':'none'},
-            style_table={'height': '400px', 
-                     'overflowY': 'auto'}
-        )        
 
-        fc_i = pd.Series(t.final_concs[ambient_settings['T']][ambient_settings['P']])[pd.Series(t.final_concs[ambient_settings['T']][ambient_settings['P']]) >0].to_dict()
-        fc = {k:float('{:.2F}'.format(v)) for k,v in fc_i.items()}
-        df_f = pd.Series(fc)
-        df_f = df_f.reset_index()
-        df_f = df_f.T.rename({'index':'compound',0:'concentration (ppm)'})
-        df_f = df_f.T
+        df_d = pd.DataFrame(t.initfinaldiff[ambient_settings['T']][ambient_settings['P']]).round(1).drop('CO2')
+        df_d = df_d.T
+        df_d  = df_d.T.rename({x:_markdown_compound(x) for x in df_d})
+        df_d = df_d.reset_index()
+        df_d = df_d.rename({'index':'compound','initial':'initial (ppm)','final':'final (ppm)','change':'change (ppm)'})
+
         
-        final_concs_table = dash_table.DataTable(
-            columns=[{'name':i,'id':i} for i in df_f.columns],
-            data=df_f.to_dict('records'),
+        diff_table = dash_table.DataTable(
+            columns=[{'name':i,'id':i,'type':'text','presentation':'markdown'} for i in df_d.columns],
+            data=df_d.to_dict('records'),
             style_as_list_view=True,
             cell_selectable=False,
             style_cell={'font_family':'helvetica',
-                    'text_align':'center',
+                    'align':'center',
                    'hover-background-color': '#555555'},
             style_header={'backgroundColor': 'Transparent'},
             style_data={'backgroundColor': 'Transparent',
-                    'border':'none'},
+                        'border':'none',
+                       'whiteSpace':'normal'},
             style_table={'height': '400px', 
-                     'overflowY': 'auto'}
+                     'overflowY': 'auto',
+                        'width':'50%'},
+            style_cell_conditional=[
+                    {'if': {'column_id': 'index'},
+                     'width': '10%',
+                    'textAlign':'left'},
+                    {'if': {'column_id': ['initial','final','change']},
+                     'width': '10%',
+                    'textAlign':'left'}],
+            markdown_options={"html": True, "link_target": "_self"},
+            
                                     )
         
-        analyse =  AnalyseSampling(t.data)
+        analyse =  AnalyseSampling(t.data,markdown=True)
         analyse.mean_sampling() ; mean = analyse.mean_data[ambient_settings['T']][ambient_settings['P']]
-        analyse.reaction_statistics() ; stats = pd.DataFrame(analyse.stats[ambient_settings['T']][ambient_settings['P']])
         analyse.reaction_paths() ; paths = pd.DataFrame(analyse.common_paths[ambient_settings['T']][ambient_settings['P']])
-
+        analyse.reaction_statistics() ; stats = pd.DataFrame(analyse.stats[ambient_settings['T']][ambient_settings['P']])
 
         stats_table = dash_table.DataTable(
-            columns=[{'name':i,'id':i} for i in stats.columns],
+            columns = [{'name':'Reactions','id':'index','type':'text','presentation':'markdown'},
+                           {'name':'k','id':'k','type':'text','presentation':'markdown'},
+                           {'name':'Frequency','id':'frequency','type':'text','presentation':'markdown'}],
             data=stats.to_dict('records'),
             style_as_list_view=True,
             cell_selectable=False,
@@ -589,15 +569,31 @@ def apprun(btn1):
                         'text_align':'center',
                        'hover-background-color': '#555555'},
             style_header={'backgroundColor': 'Transparent'},
-            style_data={'backgroundColor': 'Transparent',
-                        'border':'none'},
-            style_table={'height': '400px',
+            style_data={'backgroundColor':'Transparent',
+                        'border':'none',
+                        'whiteSpace': 'normal'},
+            style_table={'align':'centre',
+                         'height': '40rem',
+                         'width':'100%',
                         'overflowY':'auto'},
+            style_cell_conditional=[
+                    {'if': {'column_id': 'index'},
+                     'width': '60%',
+                    'textAlign':'left'},
+                    {'if': {'column_id': ['k','frequency']},
+                     'width': '20%',
+                    'textAlign':'left'}],
+            markdown_options={"html": True, "link_target": "_self"},
         )
-        
-        
+#        stats_table = dbc.Table.from_dataframe(stats, striped=True,bordered=False, hover=True, index=False,
+#                                               style={'height':'40rem',
+#                                                      'width':'80%',
+#                                                      'overflow':'auto'},
+#                                               className='overflow-wrapper') 
         paths_table = dash_table.DataTable(
-            columns = [{'name':'paths','id':'paths'},{'name':'k','id':'k'},{'name':'frequency','id':'frequency'}],
+                columns = [{'name':'Paths','id':'paths','type':'text','presentation':'markdown'},
+                           {'name':'k','id':'k','type':'text','presentation':'markdown'},
+                           {'name':'Frequency','id':'frequency','type':'text','presentation':'markdown'}],
         #columns=[{'name':i,'id':i} for i in new_stats.columns],
             data=paths.to_dict('records'),
             style_as_list_view=True,
@@ -605,12 +601,24 @@ def apprun(btn1):
             style_cell={'font_family':'helvetica',
                         'text_align':'center',
                         'whiteSpace': 'pre-line',
-                        'padding': '5px'},
+                        'padding': '3px'},
             style_header={'backgroundColor': 'Transparent'},
             style_data={'backgroundColor': 'Transparent',
-                        'border':'none'},
+                        'border':'none',
+                       'whiteSpace': 'break-spaces'},
             style_table={'height': '400px', 
-                         'overflowY': 'auto'}
+                         'overflowY': 'auto'},
+            style_cell_conditional=[
+                    {'if': {'column_id': 'Paths'},
+                     'width': '60%',
+                    'textAlign':'left'},
+                    {'if': {'column_id': ['k','Frequency']},
+                     'width': '30%',
+                    'textAlign':'left'},
+                    {'if': {'column_id': ['Frequency']},
+                     'width': '10%',
+                    'textAlign':'left'}],
+            markdown_options={'html':True,"link_target":"_self"}
                                     )
         df_m = pd.DataFrame({'comps':list(mean.keys()),'values':[y['value'] for y in list(mean.values())]})
         maxval = np.max([np.abs(df_m['values'].min()),np.abs(df_m['values'].max())])
@@ -643,7 +651,7 @@ def apprun(btn1):
                       style={'height':'60rem','width':'100%'}
                         )
         
-        return([metadata_table,stats_table,paths_table,init_concs_table,final_concs_table,resultsgraph,None])
+        return([metadata_table,stats_table,paths_table,diff_table,resultsgraph,None])
         
     
 
@@ -655,9 +663,10 @@ def open_browser():
 if __name__ == '__main__':
     #app.run_server()
     Timer(1,open_browser).start()
-    app.run_server(debug = False,port=8000)  
+    app.run_server(debug = True,port=8000)  
 
 
 
 
 
+import plotly.figure_factory as ff
