@@ -385,7 +385,9 @@ version:1.2
                     data_2[P] = self.sampling_serial(T,P,**kw)
                 finish = datetime.now() - start
                 print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
-                mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
+                reformatted = [{x:v for x,v in data_2[P][i]['data'].items()} for i in data_2[P]]
+                mean = pd.Series({k:v for k,v in pd.DataFrame(reformatted).mean().items() if v > 0.5e-6}).drop('CO2')/1e-6
+                #mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P]).keys()) if v > 0.5e-6}).drop('CO2')/1e-6
                 print('\n final concentrations (>0.5ppm):\n')
                 print(mean.round(1).to_string())
                 final_concs_2[P] = mean.to_dict()
