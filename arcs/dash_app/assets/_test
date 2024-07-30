@@ -1,0 +1,18 @@
+#.dash-spreadsheet tr:hover td.dash-cell {
+#            background-color: rgba(0.1,0.1,0.1,0.1) !important;
+#            color: black !important;
+#         }
+#.dash-spreadsheet tr:hover th {
+#	background-color: rgba(0.1,0.1,0.1,0.1) !important;
+#	color: black !important
+#}
+#
+#.dash-spreadsheet td {
+#	background-color:Transparent !important;
+#	color: white !important
+#}
+#.dash-spreadsheet th {
+#	background-color:Transparent !important;
+#	color: white !important
+#}
+

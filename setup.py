@@ -27,5 +27,6 @@ setup(
         'monty',
         'dash_bootstrap_templates',
         'dash_bootstrap_components',
-        'datetime'],
+                      'dash-loading-spinners'
+        ],
     )
