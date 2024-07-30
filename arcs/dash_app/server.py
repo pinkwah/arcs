@@ -163,14 +163,21 @@ def start_dash(host:str,port:int,server_is_started:Condition,file_locations='./'
     app.layout = html.Div(
         style={'padding':'2rem'},
         children=[
-        #dbc.Spinner(
-        #    id="loading-1", 
-        #    color='rgba(166, 38, 68,1)',
-        #    type='border',
-        #    fullscreen=True,
-        #    children=html.Div(id="loading-output-1"),
-        #    fullscreen_style={'background-color':'rgba(0.1,0.1,0.1,0.1)'}
-        #    ),
+#        dbc.Spinner(
+#            id="loading-1", 
+#            color='rgba(166, 38, 68,1)',
+#            type='border',
+#            fullscreen=True,
+#            children=html.Div(id="loading-output-1"),
+#            fullscreen_style={'background-color':'rgba(0.1,0.1,0.1,0.1)'}
+#            ),
+        dls.Triangle(
+            id="loading-1", 
+            color='rgba(166, 38, 68,1)',
+            fullscreen=True,
+            children=html.Div(id="loading-output-1"),
+            fullscreen_style={'background-color':'rgba(0.1,0.1,0.1,0.2)'}
+            ),
         dbc.Row(
             className=rowclass,
             style={'margin':'1rem','display':'flex','justify-content': 'space-between','flex-wrap': 'wrap'},

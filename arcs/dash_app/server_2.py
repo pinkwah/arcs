@@ -1,0 +1,895 @@
+from multiprocessing import Condition
+from tkinter import W
+import dash
+import dash_bootstrap_components as dbc
+from dash_bootstrap_templates import load_figure_template
+import dash_loading_spinners as dls
+from dash import html
+from dash import dash_table
+from dash import dcc
+from dash import ctx
+from dash.dependencies import Input, Output, State
+import plotly.express as px
+import pandas as pd
+import numpy as np
+from monty.serialization import loadfn
+from arcs.setup_functions import GenerateInitialConcentrations
+from arcs.analysis import AnalyseSampling
+from arcs.traversal import Traversal
+import pickle
+import warnings
+from arcs.dash_app.domino import terminate_when_parent_process_dies
+
+
+def start_dash(host: str, port: int, server_is_started: Condition, file_locations="./"):
+    terminate_when_parent_process_dies()
+    external_stylesheets = [dbc.themes.QUARTZ]
+
+    load_figure_template("QUARTZ")
+
+    # data and sliders
+
+    def load_data(filename):  # has to be a .json file in dict format
+        data = loadfn(filename)
+        return data
+
+    def keys_by_depth(dict_, depth=0, output=None):
+        if output is None:
+            output = {}
+        if depth not in output:
+            output[depth] = set()
+        for key in dict_:
+            output[depth].add(key)
+            if isinstance(dict_[key], dict):
+                keys_by_depth(dict_[key], depth + 1, output)
+        return output
+
+    def _markdown_compound(_string):
+        md = []
+        for i in _string:
+            try:
+                int(i)
+                md.append("<sub>{}</sub>".format(int(i)))
+            except:
+                md.append(i)
+        return "".join(md)
+
+    def make_sliders(import_data, labels):
+        
+        def sliderform(key, slider, label):
+            # this is very janky - need to find a better way of storing the data
+            correct_order = sorted([float(x) for x in list(slider)])
+            # marks = {float(x):str('{:.2F}'.format(float(x))) for x in list(correct_order)}
+            marks = {int(x): str(x) for x in correct_order}
+            minval = float(list(correct_order)[0])
+            maxval = float(list(correct_order)[-1])
+
+            return html.Div(
+                style={'padding':'2rem'},
+                children=[
+                    #dbc.Col(children=html.Label(
+                    #        children=label[key]), width=2),
+                    dbc.Col(
+                        children=[
+                            html.Label(
+                                children=label[key]
+                                ),
+                            dcc.Slider(
+                            className="form-range",
+                            id="slider-{}".format(key),
+                            min=minval,
+                            max=maxval,
+                            step=None,
+                            marks=None,
+                            value=minval,
+                            updatemode="drag",
+                            tooltip={"placement": "bottom",
+                                     "always_visible": True,
+                                     "style": {"color": "LightSteelBlue", "fontSize": "20px"}},
+                        )
+                        ]
+                        #width=10,
+                    ),
+                ]
+            )
+
+        slider_keys = keys_by_depth(import_data)
+        sliders = []
+        for k in slider_keys:
+            print(k)
+            sliders.append(sliderform(k, sorted(slider_keys[k]), labels))
+        return sliders
+
+    # run data fields
+    g = pickle.load(open(file_locations + "SCAN_graph_temp.p", "rb"))
+    t = Traversal(graph=g, reactions=file_locations + "SCAN_reactions_temp.p")
+
+    graph = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    table = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    table2 = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    table3 = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    table4 = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    table5 = dbc.Alert("No Data", color="light")  # None #html.P('None')
+    
+    
+    meta = dbc.Alert("Data Shown When Run", color="secondary")  # None #html.P('None')
+    sliders = make_sliders(g, labels={0: "T (K)", 1: "P (bar)"})
+
+    gic = GenerateInitialConcentrations(g)
+    gic.all_zero(include_co2=False)
+    gic.update_ic({"SO2": 10e-6, "NO2": 50e-6, "H2S": 30e-6, "H2O": 20e-6})
+    concs = gic.ic
+    settings = {
+        "nprocs": 1,
+        "sample_length": 320,
+        "max_rank": 10,
+        "max_compounds": 5,
+        "probability_threshold": 0.1,
+        "path_depth": 5,
+        "ceiling": 2000,
+        "scale_highest": 0.2,
+    }
+    ambient_settings = {"T": None, "P": None}
+
+    backgroundcolours = "rgba(100,100,120,0.5)"
+
+    rowclass = "Row"
+
+    ###################### layout of DASH template########################
+    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+
+# cards ultimately we need to put this into a seperate pages sheet and just load them in
+
+    loading_spinner = dls.Triangle(
+        id="loading-1",
+        color="rgba(166, 38, 68,1)",
+        fullscreen=True,
+        children=html.Div(id="loading-output-1"),
+        fullscreen_style={"background-color": "rgba(0.1,0.1,0.1,0.2)"},
+    )
+
+    concentrations_table = dbc.Stack(
+        style={
+            'textAlign': 'justified',
+            "margin-left":"20px",
+            "margin-right":"20px"
+        },
+        gap=3,
+        children=[
+            dash_table.DataTable(
+                id='concentrations_table',
+                columns=[{
+                    'name': 'compound',
+                    'id': 'index',
+                    'editable': True
+                },
+                    {
+                    'name': 'initial conc. (ppm)',
+                    'id': 'initial',
+                    'editable': True
+                },
+                ],
+                data=[
+                    {'index': 'SO2', 'initial': 10},
+                    {'index': 'NO2', 'initial': 50},
+                    {'index': 'H2S', 'initial': 30},
+                    {'index': 'H2O', 'initial': 20}
+                ],
+                row_deletable=True,
+                style_as_list_view=False,
+                style_cell={
+                    "font_family": "helvetica",
+                    "align": "center",
+                    'padding-right': '30px',
+                    'padding-left': '30px',
+                    'text-align': 'center',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
+                },
+                style_table={
+                    "overflow": "scroll",
+                },
+                fixed_rows={"headers": True},
+    ),
+    dbc.Button('add compound', id='addrows', n_clicks=0)
+        ]
+    )
+
+    arcs_settings = dbc.Accordion(
+        start_collapsed=True,
+        children=[
+            dbc.AccordionItem(
+                title="Samples",
+                className="accordion",
+                children=[
+                    "Number of samples used to get a stochastic median average. Recommended amount >100, Default value = 100",
+                    dcc.Input(
+                        id="samples",
+                        value="10",
+                        debounce=True,
+                        # style={
+                        # "backgroundColor": backgroundcolours,
+                        #    "color": "white",
+                        # },
+                        className="form-label mt-4",
+                    ),
+                ],
+            ),
+            dbc.AccordionItem(
+                title="Maximum Path Depth",
+                className="accordion",
+                children=[
+                    "The maximum path depth is the upper limit for how far down a reaction network a sample goes. Recommended amount ~5",
+                    dcc.Input(
+                        id="pathdepth",
+                        value="5",
+                        debounce=True,
+                        # style={
+                        #    "backgroundColor": backgroundcolours,
+                        #    "color": "white",
+                        # },
+                        className="form-label mt-4",
+                    ),
+                ],
+            ),
+            dbc.AccordionItem(
+                title="Discovery % Cutoff",
+                className="accordion",
+                children=[
+                    "The discovery cutoff, or probability cutoff, determines the amount at which a certain substance is used in the reactions relative to the largest constituents. This is to weight the reactions in terms of the larger concentrations dominating the reaction probabilities. Recommended amount ~3%",
+                    dcc.Input(
+                        id="probability_cutoff",
+                        value="3",
+                        debounce=True,
+                        # style={
+                        #    "backgroundColor": backgroundcolours,
+                        #    "color": "white",
+                        # },
+                        className="form-label mt-4",
+                    ),
+                ],
+
+            ),
+            dbc.AccordionItem(
+                title="Concentration % Ceiling",
+                className="accordion",
+                children=[
+                    "The concentration percentage ceiling that envokes the scaling of large concentrations. When the percentage concentration of a specific component reaches this ceiling it is scaled by the amount specified in 'Scale Large Concentrations'. Default amount = 500%",
+                    dcc.Input(
+                        id="ceiling",
+                        value="500",
+                        debounce=True,
+                        # style={
+                        #    "backgroundColor": backgroundcolours,
+                        #    "color": "white",
+                        # },
+                        className="form-label mt-4",
+                    ),
+                ],
+            ),
+            dbc.AccordionItem(
+                title="Scale Large Concentrations",
+                className="accordion",
+                children=[
+                    "This value is the amount by which components which have reached the % ceiling in 'Concentration % Ceiling' are scaled by. Default amount = 0.1",
+                    dcc.Input(
+                        id="scale_highest",
+                        value="0.1",
+                        debounce=True,
+                        # style={
+                        #    "backgroundColor": backgroundcolours,
+                        #    "color": "white",
+                        # },
+                        className="form-label mt-4",
+                    )
+                ],
+            ),
+            dbc.AccordionItem(
+                title="Max. Ranking",
+                className="accordion",
+                children=[
+                    "cant remember this one ! check! ",
+                    dcc.Input(
+                        id="max_rank",
+                        value="5",
+                        debounce=True,
+                        # style={
+                        #    "backgroundColor": backgroundcolours,
+                        #    "color": "white",
+                        # },
+                        className="form-label mt-4",
+                    )
+                ]
+            ),
+            dbc.AccordionItem(
+                title="Max. Number of Compounds Considered",
+                className="accordion",
+                children=[
+                    "the maximum number of compounds considered corresponds to the largest number of compounds that can be ranked for selection at any one time. Default value = 5.",  # can't remember this one
+                    dcc.Input(
+                        id="max_compounds",
+                        value="5",
+                        debounce=True,
+                        # style={
+                        #    "color": "white",
+                        #    "backgroundColor": backgroundcolours,
+                        # },
+                        className="form-label mt-4",
+                    )
+                ]
+            ),
+            dbc.AccordionItem(
+                title="Graph Sampling Method",
+                className="accordion",
+                children=[
+                    "There are multiple algorithms that can be used to find the shortest path between two components in the reaction graph. Implemented in this work are Bellman-Ford and Dijkstra. Default = Dijkstra",
+                    dbc.RadioItems(
+                        id="method",
+                        className="btn btn-outline-primary",
+                        options={
+                            "Bellman-Ford": "Bellman-Ford",
+                                            "Dijkstra": "Dijkstra",
+                        },
+                        value="Dijkstra",
+                    )
+                ]
+            ),
+            dbc.AccordionItem(
+                title="Include CO2 as a reactant?",
+                className="accordion",
+                children=[
+                    html.P(
+                        "Including CO2 as a reactant or assume that CO<sub>2</sub> is a background solvent. Default = False CURRENTLY NOT WORKING"),
+                    dbc.RadioItems(
+                        id="include_co2",
+                        className="btn btn-outline-primary",
+                        options={
+                            "True": "True",
+                            "False": "False",
+                        },
+                        value="False",
+                    )
+                ]
+            ),
+        ],
+    ),
+
+    submit_button = dbc.Button(
+        children="Run",
+        id="submit-val",
+        n_clicks=0,
+        className="btn btn-success",
+    )
+
+    metadatatable = html.Div(
+                        id="metadata",
+                        style={
+                            "align": "center"
+                        },
+                        children=meta,
+                        className="table table-secondary",
+                    )
+
+    offcanvas = html.Div(
+        style={
+            'textAlign': 'justified',
+            "margin-left": "1px",
+            "margin-right": "1px",
+            "padding":"2px"
+        },
+        children=[
+            dbc.Button("Settings", id="open-offcanvas", n_clicks=0,className='btn btn-info'),
+            dbc.Offcanvas(
+                children=[
+                    dbc.Stack(
+                        [
+                    dbc.Card(
+                        [
+                            dbc.CardBody(arcs_settings),
+                            dbc.CardFooter("ARCS Settings")
+                        ]
+
+                    ),
+                    dbc.Card(
+                        [
+                            dbc.CardBody(metadatatable),
+                            dbc.CardFooter("System Data")
+                        ]
+                    )
+                        ],
+                        gap=3
+                    )
+                ],
+                id="offcanvas",
+                is_open=False,
+            )
+        ]
+    )
+
+    most_frequent_reactions = html.Div(
+        id="reaction-stats",
+        style={"align": "center"},
+        children=table4,
+        #className="table table-primary",
+    )
+
+    most_frequent_paths = html.Div(
+        id="reaction-paths",
+        style={"align": "center"},
+        children=table5,
+        #className="table table-primary",
+    ),
+    
+    logos = html.Div( # needs work
+        children=[
+            html.Img(
+                src=app.get_asset_url(
+                    "images/logos.png"
+                ),
+                style={
+                    #"width": "50%",
+                    "height": "50%",
+                    "padding": "0.1rem",
+                    "align": "end",
+                },
+            ),
+        ],
+    ),
+
+    results_concentration_graph = html.Div(
+        id="final_concs",
+        children=None,
+    ),
+
+    finalgraph = html.Div(
+                    id="output-graph",
+                    children=graph
+                ),
+
+################################### layout
+
+    app.layout = html.Div(
+        style={'padding': '5rem'},
+        children=[
+            dbc.Row(logos),
+            html.P("ARCS 1.3.0"),
+            dbc.Row(
+                [
+                    html.H1(["Automated Reactions for ","C", "O", html.Sub(2), " onversion"]),
+                    html.Div(
+                        # for updating the concentrations to be used in ARCS (no need for displaying)
+                        id="placeholder1",
+                        children=None,
+                        style={"display": "none"},
+                    ),
+                    html.Div(
+                        id="placeholder2",  # for updating the settings to be used in ARCS
+                        children=None,
+                        style={"display": "none"},
+                    ),
+                    html.Div(
+                        id="placeholder3",  # placeholder3 is for updating the sliders data to be used in ARCS
+                        children=None,
+                        style={"display": "none"},
+                    ),
+                ]
+            ),
+            loading_spinner,
+            dbc.Tabs(
+                style={'padding':'2rem','align':'center'},
+                children=[
+                    dbc.Tab(
+                        className='nav nav-tabs',
+                        label='Settings and Inputs',
+                        children=[
+                            dbc.Col(
+                                children=[dbc.Stack(
+                                    gap=3,
+                                    children=[
+                                        dbc.Card(
+                                            children=[
+                                                dbc.CardHeader('Input Concentrations'),
+                                                dbc.CardBody(concentrations_table),
+                                                dbc.CardFooter(submit_button),
+                                            ]
+                                        ),
+                                        dbc.Card(
+                                            children=[
+                                                dbc.CardHeader('Conditions'),
+                                                dbc.CardBody(sliders),
+                                                dbc.CardFooter(offcanvas)
+                                            ]
+                                        )
+                                    ]
+                                )
+                                ]
+                            )
+                        ]
+                    ),
+                    dbc.Tab(
+                        label='Output Concentrations',
+                        children=[
+                            dbc.Stack(
+                                gap=3,
+                                children=[
+                                    dbc.Card(
+                                        children=[
+                                            dbc.CardHeader(
+                                                "Change in Concentrations"),
+                                            dbc.CardFooter(
+                                                dbc.Tabs(
+                                                    style={'padding':'2rem'},
+                                                    children=[
+                                                        dbc.Tab(
+                                                            finalgraph, label='Graph'),
+                                                        dbc.Tab(
+                                                            results_concentration_graph, label='Table')
+                                                    ],
+                                                )
+                                            ),
+                                        ]
+                                    ),
+                                ]
+                            )
+                        ]
+                    ),
+                    dbc.Tab(
+                        label='Reactions',
+                        children=[
+                            dbc.Stack(
+                                gap=3,
+                                children=[
+                                    dbc.Card(
+                                        children=[
+                                            dbc.CardBody(
+                                                most_frequent_reactions),
+                                            dbc.CardFooter(
+                                                'Most Frequent Reactions')
+                                        ]
+                                    ),
+                                    dbc.Card(
+                                        children=[
+                                            dbc.CardBody(
+                                                most_frequent_paths),
+                                            dbc.CardFooter(
+                                                'Most Frequent Paths')
+                                        ]
+                                    )
+                                ]
+                            )
+                        ]
+                        )
+                        ]
+
+                        )
+                        ]
+                    )
+
+#####################app callbacks
+    #off canvas
+    @app.callback(
+        Output("offcanvas", "is_open"),
+        Input("open-offcanvas", "n_clicks"),
+        [State("offcanvas", "is_open")],
+    )
+    def toggle_offcanvas(n1, is_open):
+        if n1:
+            return not is_open
+        return is_open
+    
+    #update concentrations table (new!)
+    @app.callback(
+            Output('concentrations_table','data'),
+            Input('addrows','n_clicks'),
+            State('concentrations_table','data'),
+            State('concentrations_table','columns'))
+    def add_row(n_clicks,rows,columns):
+        if n_clicks > 0:
+            rows.append({c['id']: '' for c in columns})
+        return(rows)
+    #update the concentrations
+    @app.callback(
+            Output('placeholder1','children'),
+            Input('concentrations_table','data'),
+            Input('concentrations_table','columns')
+    )
+    def update_concentrations(rows,columns):
+        for k,v in concs.items(): # reset values
+            if not k == 'CO2':
+                concs[k] = 0
+        for row in rows:
+            spec = row.get('index', None)
+            num = row.get('initial', None)
+            if spec in list(concs.keys()):
+                concs[spec] = float(num) * 1e-6
+            else:
+                print('errors!')
+        print(pd.Series(concs))
+            
+        
+    # update settings
+    @app.callback(
+        Output("placeholder2", "children"),
+        [
+            Input("samples", "value"),
+            Input("pathdepth", "value"),
+            Input("probability_cutoff", "value"),
+            Input("ceiling", "value"),
+            Input("scale_highest", "value"),
+            Input("max_rank", "value"),
+            Input("max_compounds", "value"),
+            Input("method", "value"),
+            Input("include_co2", "value"),
+        ],
+    )
+    def update_settings(*inputs):
+        settings["sample_length"]=int(inputs[0])
+        settings["path_depth"]=int(inputs[1])
+        settings["probability_threshold"]=float(inputs[2]) / 100
+        settings["ceiling"]=int(inputs[3])
+        settings["scale_highest"]=float(inputs[4])
+        settings["max_rank"]=int(inputs[5])
+        settings["max_compounds"]=int(inputs[6])
+        settings["method"]=str(inputs[7])
+        settings["include_co2"]=bool(inputs[8])
+
+    #update T and P
+    @app.callback(
+        Output("placeholder3", "children"),
+        [Input("slider-0", "value"), Input("slider-1", "value")],
+    )
+    def update_t_and_p(*inputs):
+        ambient_settings["T"]=int(inputs[0])
+        ambient_settings["P"]=int(inputs[1])
+
+    @app.callback(
+        [
+            Output("metadata", "children"),
+            Output("reaction-stats", "children"),
+            Output("reaction-paths", "children"),
+            Output("final_concs", "children"), 
+            Output("output-graph", "children"),
+            Output("loading-output-1", "children"),
+        ],
+        Input("submit-val", "n_clicks"),
+    )
+    def apprun(btn1):
+        if "submit-val" == ctx.triggered_id:
+            warnings.simplefilter("ignore")
+            t.run(
+                trange=[ambient_settings["T"]],
+                prange=[ambient_settings["P"]],
+                save=False,
+                ic=concs,
+                **settings,
+            )
+
+            metadata=t.metadata
+            # del metadata['init_concs']
+            metadata=pd.Series(metadata).reset_index()
+            metadata=metadata.rename(columns={0: "value"})
+
+            metadata_table=dash_table.DataTable(
+                columns=[{"name": i, "id": i} for i in metadata.columns],
+                data=metadata.to_dict("records"),
+                style_as_list_view=False,
+                cell_selectable=False,
+                style_cell={
+                    "font_family": "helvetica",
+                    "text_align": "center",
+                #    "hover-background-color": "#555555",
+                },
+                #style_table={"height": "600px", "overflowY": "auto"},
+                fixed_rows={"headers": True},
+            )
+            #####updating concentrations table 
+            df_d=(
+                pd.DataFrame(
+                    t.initfinaldiff[ambient_settings["T"]
+                        ][ambient_settings["P"]]
+                )
+                .round(1)
+                .drop("CO2")
+            )
+            df_d=df_d.T
+            df_d=df_d.T.rename({x: _markdown_compound(x) for x in df_d})
+            df_d=df_d.reset_index()
+            df_d=df_d.rename(
+                {
+                    "index": "compound",
+                    "initial": "initial (ppm)",
+                    "final": "final (ppm)",
+                    "change": "change (ppm)",
+                }
+            )
+
+            diff_table=dash_table.DataTable(
+                columns=[
+                    {"name": i, "id": i, "type": "text","presentation": "markdown"}
+                    for i in df_d.columns
+                ],
+                data=df_d.to_dict("records"),
+                style_as_list_view=True,
+                cell_selectable=False,
+                style_cell={
+                    "font_family": "helvetica",
+                    "align": "center",
+                    'padding-right': '30px',
+                    'padding-left': '30px',
+                    'text-align': 'center',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
+                },
+                style_table={
+                    "overflow": "scroll",
+                },
+                fixed_rows={"headers": True},
+                style_cell_conditional=[
+                    {"if": {"column_id": "index"},
+                        "width": "10%", "textAlign": "left"},
+                    {
+                        "if": {"column_id": ["initial", "final", "change"]},
+                        "width": "10%",
+                        "textAlign": "left",
+                    },
+                ],
+                markdown_options={"html": True, "link_target": "_self"},
+            )
+            
+            
+            ### statistics 
+            analyse=AnalyseSampling(t.data, markdown=True)
+            analyse.mean_sampling()
+            mean=analyse.mean_data[ambient_settings["T"]
+                ][ambient_settings["P"]]
+            analyse.reaction_paths()
+            paths=pd.DataFrame(
+                analyse.common_paths[ambient_settings["T"]
+                    ][ambient_settings["P"]]
+            )
+            analyse.reaction_statistics()
+            stats=pd.DataFrame(
+                analyse.stats[ambient_settings["T"]][ambient_settings["P"]]
+            )
+            stats_table=dash_table.DataTable(
+                columns=[
+                    {
+                        "name": "Reactions",
+                        "id": "index",
+                        "type": "text",
+                        "presentation": "markdown",
+                    },
+                    {
+                        "name": "k",
+                        "id": "k",
+                        "type": "text",
+                        "presentation": "markdown",
+                    },
+                    {
+                        "name": "Frequency",
+                        "id": "frequency",
+                        "type": "text",
+                        "presentation": "markdown",
+                    },
+                ],
+                data=stats.to_dict("records"),
+                style_as_list_view=False,
+                cell_selectable=False,
+                style_cell={
+                    "font_family": "helvetica",
+                    "align": "center",
+                    'padding-right': '10px',
+                    'padding-left': '10px',
+                    'text-align': 'center',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
+                },
+                style_table={
+                    "overflow": "scroll",
+                },
+                fixed_rows={"headers": True},
+                markdown_options={"html": True, "link_target": "_self"},
+            )
+
+            paths_table=dash_table.DataTable(
+                columns=[
+                    {
+                        "name": "Paths",
+                        "id": "paths",
+                        "type": "text",
+                        "presentation": "markdown",
+                    },
+                    {
+                        "name": "k",
+                        "id": "k",
+                        "type": "text",
+                        "presentation": "markdown",
+                    },
+                    {
+                        "name": "Frequency",
+                        "id": "frequency",
+                        "type": "text",
+                        "presentation": "markdown",
+                    },
+                ],
+                # columns=[{'name':i,'id':i} for i in new_stats.columns],
+                data=paths.to_dict("records"),
+                style_as_list_view=False,
+                cell_selectable=False,
+                style_cell={
+                    "font_family": "helvetica",
+                    "align": "center",
+                    'padding-right': '10px',
+                    'padding-left': '10px',
+                    'text-align': 'center',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
+                },
+                style_table={
+                    "overflow": "scroll",
+                },
+                fixed_rows={"headers": True},
+                markdown_options={"html": True, "link_target": "_self"},
+            )
+            df_m=pd.DataFrame(
+                {
+                    "comps": list(mean.keys()),
+                    "values": [y["value"] for y in list(mean.values())],
+                }
+            )
+            maxval=np.max(
+                [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
+            )
+            ymin, ymax=[-maxval, maxval]
+
+            fig=px.bar(
+                df_m,
+                x="comps",
+                y="values",
+                labels={"comps": "", "values": "\u0394 ppm"},
+                color="values",
+                color_continuous_scale="tropic_r",
+                hover_data={
+                    "values": False,
+                    "comps": False,
+                    "specie": df_m["comps"],
+                    "PPM": (":.1f", df_m["values"]),
+                },
+                # width=500,height=500
+            )
+            fig.update_layout(
+                plot_bgcolor="rgba(0,0,0,0)",
+                paper_bgcolor="rgba(0,0,0,0)",
+                hovermode="closest",
+                hoverlabel=dict(font_size=16),
+                coloraxis_showscale=False,
+            )
+            fig.update_xaxes(showgrid=False, tickangle=-60, tickmode="linear")
+            dtick=int(int(ymax - ymin) / 10)
+            fig.update_yaxes(
+                showgrid=True,
+                tickmode="linear",
+                range=[ymin - 2, ymax + 2],
+                dtick=dtick,
+            )
+
+            resultsgraph=dcc.Graph(
+                figure=fig,
+                animate=True,
+                config={"scrollZoom": True},
+                #style={"height": "60rem", "width": "100%"},
+            )
+
+            return [
+                metadata_table,
+                stats_table,
+                paths_table,
+                diff_table,
+                resultsgraph,
+                None,
+            ]
+
+    with server_is_started:
+        server_is_started.notify()
+
+    app.run_server(debug=False, port=port, host=host)
