@@ -45,9 +45,17 @@ class AnalyseSampling:
         rs = _latex_format(reacs)
         ps = _latex_format(prods)
         return(''.join([rs,' = ',ps]))
+    
+    def _sci_notation(self, number, sig_fig=2):
+        ret_string = "{0:.{1:d}e}".format(number, sig_fig)
+        a, b = ret_string.split("e")
+        # remove leading "+" and strip leading zeros
+        b = int(b)
+        return (a + " * 10^" + str(b))
 
             
     def _get_stats(self,equations):
+
         appearances = defaultdict(int)
         for sample in equations:
             for i in sample:

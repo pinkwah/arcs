@@ -128,6 +128,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         "path_depth": 5,
         "ceiling": 2000,
         "scale_highest": 0.2,
+        "rank_small_reactions_higher":True
     }
     ambient_settings = {"T": None, "P": None}
 
@@ -170,10 +171,11 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 },
                 ],
                 data=[
+                    {'index': 'H2O', 'initial': 30},
+                    {'index': 'O2', 'initial': 10},
                     {'index': 'SO2', 'initial': 10},
-                    {'index': 'NO2', 'initial': 50},
-                    {'index': 'H2S', 'initial': 30},
-                    {'index': 'H2O', 'initial': 20}
+                    {'index': 'NO2', 'initial': 0},
+                    {'index':'H2S','initial':10}
                 ],
                 row_deletable=True,
                 style_as_list_view=False,
@@ -326,10 +328,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     dbc.RadioItems(
                         id="method",
                         className="btn btn-outline-primary",
-                        options={
-                            "Bellman-Ford": "Bellman-Ford",
-                                            "Dijkstra": "Dijkstra",
-                        },
+                        options=[
+                            {"label": "Bellman-Ford", "value": "Bellman-Ford"},
+                            {"label": "Dijkstra", "value": "Dijkstra"},
+                        ],
                         value="Dijkstra",
                     )
                 ]
@@ -343,11 +345,28 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     dbc.RadioItems(
                         id="include_co2",
                         className="btn btn-outline-primary",
-                        options={
-                            "True": "True",
-                            "False": "False",
-                        },
-                        value="False",
+                        options=[
+                            {"label":"True","value":True},
+                            {"label":"False","value":False},
+                        ],
+                        value=False,
+                    )
+                ]
+            ),
+            dbc.AccordionItem(
+                title="Occams Razor?",
+                className="accordion",
+                children=[
+                    html.P(
+                        "Sometimes the simplest solutions are the most plausible. Rank Smaller reactions higher in the list. Default = True"),
+                    dbc.RadioItems(
+                        id="rank_small_reactions",
+                        className="btn btn-outline-primary",
+                        options=[
+                            {"label":"True","value":True},
+                            {"label":"False","value":False},
+                        ],
+                        value=True,
                     )
                 ]
             ),
@@ -355,11 +374,13 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     ),
 
     submit_button = dbc.Button(
-        children="Run",
-        id="submit-val",
-        n_clicks=0,
-        className="btn btn-success",
-    )
+                children="Run",
+                id="submit-val",
+                n_clicks=0,
+                className="btn btn-success",
+                style={'float': 'left',"margin-right":"1rem"}
+            )
+
 
     metadatatable = html.Div(
                         id="metadata",
@@ -367,7 +388,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                             "align": "center"
                         },
                         children=meta,
-                        className="table table-secondary",
+                        #className="table table-secondary",
                     )
 
     offcanvas = html.Div(
@@ -375,10 +396,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             'textAlign': 'justified',
             "margin-left": "1px",
             "margin-right": "1px",
-            "padding":"2px"
+            #"padding":"2px",
         },
         children=[
-            dbc.Button("Settings", id="open-offcanvas", n_clicks=0,className='btn btn-info'),
+            dbc.Button("Settings", id="open-offcanvas", n_clicks=0,className='btn btn-info',style={'float': 'left',"margin-right":"1rem"}),
             dbc.Offcanvas(
                 children=[
                     dbc.Stack(
@@ -402,6 +423,8 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 ],
                 id="offcanvas",
                 is_open=False,
+                scrollable=True,
+                style={"width":"50rem"}
             )
         ]
     )
@@ -429,7 +452,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style={
                     #"width": "50%",
                     "height": "50%",
-                    "padding": "0.1rem",
+                    "padding": "0.05rem",
                     "align": "end",
                 },
             ),
@@ -456,7 +479,11 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             html.P("ARCS 1.3.0"),
             dbc.Row(
                 [
-                    html.H1(["Automated Reactions for ","C", "O", html.Sub(2), " onversion"]),
+                    html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
+                    html.Div(
+                        [offcanvas,
+                         submit_button]
+                    ),
                     html.Div(
                         # for updating the concentrations to be used in ARCS (no need for displaying)
                         id="placeholder1",
@@ -481,7 +508,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 children=[
                     dbc.Tab(
                         className='nav nav-tabs',
-                        label='Settings and Inputs',
+                        label='Inputs',
                         children=[
                             dbc.Col(
                                 children=[dbc.Stack(
@@ -491,14 +518,12 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                             children=[
                                                 dbc.CardHeader('Input Concentrations'),
                                                 dbc.CardBody(concentrations_table),
-                                                dbc.CardFooter(submit_button),
                                             ]
                                         ),
                                         dbc.Card(
                                             children=[
                                                 dbc.CardHeader('Conditions'),
                                                 dbc.CardBody(sliders),
-                                                dbc.CardFooter(offcanvas)
                                             ]
                                         )
                                     ]
@@ -544,7 +569,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                         children=[
                                             dbc.CardBody(
                                                 most_frequent_reactions),
-                                            dbc.CardFooter(
+                                            dbc.CardHeader(
                                                 'Most Frequent Reactions')
                                         ]
                                     ),
@@ -552,7 +577,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                         children=[
                                             dbc.CardBody(
                                                 most_frequent_paths),
-                                            dbc.CardFooter(
+                                            dbc.CardHeader(
                                                 'Most Frequent Paths')
                                         ]
                                     )
@@ -562,7 +587,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                         ),
                         ]
 
-                        )
+                        ),
                         ]
                     )
 
@@ -619,6 +644,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             Input("max_compounds", "value"),
             Input("method", "value"),
             Input("include_co2", "value"),
+            Input("rank_small_reactions","value")
         ],
     )
     def update_settings(*inputs):
@@ -631,6 +657,8 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         settings["max_compounds"]=int(inputs[6])
         settings["method"]=str(inputs[7])
         settings["include_co2"]=bool(inputs[8])
+        settings["rank_small_reactions_higher"]=bool(inputs[9])
+        print(bool(inputs[9]))
 
     #update T and P
     @app.callback(
@@ -668,17 +696,27 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             metadata=metadata.rename(columns={0: "value"})
 
             metadata_table=dash_table.DataTable(
-                columns=[{"name": i, "id": i} for i in metadata.columns],
+                columns=[{"name": i,
+                           "id": i,
+                           "type":"text",
+                           "presentation":"markdown"} for i in metadata.columns],
                 data=metadata.to_dict("records"),
                 style_as_list_view=False,
                 cell_selectable=False,
                 style_cell={
                     "font_family": "helvetica",
-                    "text_align": "center",
-                #    "hover-background-color": "#555555",
+                    "align": "center",
+                    'padding-right': '30px',
+                    'padding-left': '30px',
+                    'text-align': 'center',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
                 },
-                #style_table={"height": "600px", "overflowY": "auto"},
-                fixed_rows={"headers": True},
+                style_table={
+                    "overflow": "scroll",
+                },
+                markdown_options={"html": True, "link_target": "_self"}
+                #fixed_rows={"headers": True},
             )
             #####updating concentrations table 
             df_d=(
@@ -703,7 +741,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
 
             diff_table=dash_table.DataTable(
                 columns=[
-                    {"name": i, "id": i, "type": "text","presentation": "markdown"}
+                    {"name": i, 
+                     "id": i, 
+                     "type": "text",
+                     "presentation": "markdown"}
                     for i in df_d.columns
                 ],
                 data=df_d.to_dict("records"),
@@ -721,16 +762,16 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style_table={
                     "overflow": "scroll",
                 },
-                fixed_rows={"headers": True},
-                style_cell_conditional=[
-                    {"if": {"column_id": "index"},
-                        "width": "10%", "textAlign": "left"},
-                    {
-                        "if": {"column_id": ["initial", "final", "change"]},
-                        "width": "10%",
-                        "textAlign": "left",
-                    },
-                ],
+                #fixed_rows={"headers": True},
+                #style_cell_conditional=[
+                #    {"if": {"column_id": "index"},
+                #        "width": "10%", "textAlign": "left"},
+                #    {
+                #        "if": {"column_id": ["initial", "final", "change"]},
+                #        "width": "10%",
+                #        "textAlign": "left",
+                #    },
+                #],
                 markdown_options={"html": True, "link_target": "_self"},
             )
             
@@ -796,7 +837,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style_table={
                     "overflow": "scroll",
                 },
-                fixed_rows={"headers": True},
+                #fixed_rows={"headers": True},
                 markdown_options={"html": True, "link_target": "_self"},
             )
 
@@ -837,13 +878,18 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style_table={
                     "overflow": "scroll",
                 },
-                fixed_rows={"headers": True},
+                #fixed_rows={"headers": True},
                 markdown_options={"html": True, "link_target": "_self"},
             )
+            df_m_t = pd.DataFrame(mean).T 
+            df_m_t = df_m_t[df_m_t['value'] !=0 ]
+
             df_m=pd.DataFrame(
                 {
-                    "comps": list(mean.keys()),
-                    "values": [y["value"] for y in list(mean.values())],
+                    "comps": list(df_m_t.T.keys()),
+                    "values": df_m_t['value'].values,
+                    "variance":df_m_t['variance'].values,
+                    "variance_minus":-df_m_t['variance'].values
                 }
             )
             maxval=np.max(
@@ -855,12 +901,16 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 df_m,
                 x="comps",
                 y="values",
+                error_y="variance",
+                error_y_minus="variance_minus",
                 labels={"comps": "", "values": "\u0394 ppm"},
                 color="values",
                 color_continuous_scale="tropic_r",
                 hover_data={
                     "values": False,
                     "comps": False,
+                    "variance":False,
+                    "error":(":.2E", df_m["variance"]),
                     "specie": df_m["comps"],
                     "PPM": (":.1f", df_m["values"]),
                 },

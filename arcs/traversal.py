@@ -117,11 +117,17 @@ class Traversal:
                     
         return(choices)
     
+    def _length_multiplier(self,candidate):
+        if self.rank_small_reactions_higher:
+            return(len(list(candidate)))
+        else:
+            return(1)
+    
     def _get_weighted_reaction_rankings(self,T,P,
                                         choices,
                                         max_rank=5,
-                                        rank_small_reactions_higher=True,
                                         method='Bellman-Ford'):
+        
         rankings = {}
         if len(choices) > 1:
             
@@ -132,10 +138,10 @@ class Traversal:
                 if len(choices) > 2:
                     for c in list(choices)[2:]:
                         if c in candidates:
-                            weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']
+                            weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']*10**self._length_multiplier(self.graph[T][P][x[1]])
                             rankings[x[1]] = {'candidates':candidates,'weight':weight}
                 else:
-                    weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']
+                    weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']*10**self._length_multiplier(self.graph[T][P][x[1]])
                     rankings[x[1]] = {'candidates':candidates,'weight':weight}
         if rankings:
             topranks = [x for i,x in enumerate(rankings) if i<=max_rank]
@@ -189,7 +195,6 @@ class Traversal:
                     max_rank=5,
                     co2=False,
                     scale_highest=1000,
-                    rank_small_reactions_higher=True,
                     ceiling=3000,
                     method='bellman-ford'):
     
@@ -215,7 +220,6 @@ class Traversal:
             rankings = self._get_weighted_reaction_rankings(T=T,P=P,
                                                             choices=choices,
                                                             max_rank=max_rank,
-                                                            rank_small_reactions_higher=rank_small_reactions_higher,
                                                             method=method)        
             if not rankings:
                 break
@@ -364,10 +368,11 @@ version:1.2
         ->shortest path method = {}
         ->number of processes = {}
         ->concentration ceiling = {} %
-        ->scale highest = {}\n'''.format(str(datetime.now()),self.sample_length,
+        ->scale highest = {}
+        ->rank smaller reactions higher = {}\n'''.format(str(datetime.now()),self.sample_length,
                                        self.probability_threshold,self.max_compounds,
                                        self.max_rank,self.path_depth,self.co2,self.method,
-                                       self.nprocs,self.ceiling,self.scale_highest))
+                                       self.nprocs,self.ceiling,self.scale_highest,self.rank_small_reactions_higher))
         
         print('initial concentrations (ppm):\n')
         self.concs = ic
@@ -431,6 +436,7 @@ version:1.2
                          'nprocs':self.nprocs,
                          'ceiling':self.ceiling,
                          'scale_highest':self.scale_highest,
+                         'rank_small_reactions_higher':self.rank_small_reactions_higher,
                          'platform':platform.platform(),
                          'python_version':platform.python_version(),
                          'processor':platform.processor(),
