@@ -54,6 +54,7 @@ class Traversal:
         self.nprocs = 4    
         self.ceiling = 2000
         self.scale_highest=0.1
+        self.rank_small_reactions_higher=True
         self.method='Bellman-Ford'
         self.final_concs = {} 
         self.initfinaldiff = {}
@@ -119,6 +120,7 @@ class Traversal:
     def _get_weighted_reaction_rankings(self,T,P,
                                         choices,
                                         max_rank=5,
+                                        rank_small_reactions_higher=True,
                                         method='Bellman-Ford'):
         rankings = {}
         if len(choices) > 1:
@@ -154,15 +156,17 @@ class Traversal:
                 s = Substance.from_formula(n,charge=charged_species[n])
                 substances[s.name] = s
             else:
-                s = Substance.from_formula(n,charge=0)
+                s = Substance.from_formula(n)#,charge=0) # charge buggers up everything have removed for now....
                 substances[s.name] = s 
+        eql = Equilibrium(reac=r,prod=p,param=k)
         try:
-            return(EqSystem([Equilibrium(r,p,k)],substances)) # might not just be able to try a return...
+            return(EqSystem([eql],substances)) # might not just be able to try a return...
         except:
             return(None)
         
         
     def equilibrium_concentrations(self,concs,eq):
+        # something is going wrong here...
         fc = copy.deepcopy(concs)
         try:
             x,sol,sane = eq.root(fc)
@@ -185,6 +189,7 @@ class Traversal:
                     max_rank=5,
                     co2=False,
                     scale_highest=1000,
+                    rank_small_reactions_higher=True,
                     ceiling=3000,
                     method='bellman-ford'):
     
@@ -210,6 +215,7 @@ class Traversal:
             rankings = self._get_weighted_reaction_rankings(T=T,P=P,
                                                             choices=choices,
                                                             max_rank=max_rank,
+                                                            rank_small_reactions_higher=rank_small_reactions_higher,
                                                             method=method)        
             if not rankings:
                 break

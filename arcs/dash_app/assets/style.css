@@ -17,6 +17,10 @@
 	color: white !important
 }
 
+.column-header-name {
+width: 100%;
+text-align: center;
+}
 .Select-control {
     background-color:rgba(25, 25, 25,0.1) !important;
     color:white;

@@ -1,5 +1,5 @@
 from multiprocessing import Condition
-from tkinter import W
+#from tkinter import W
 import dash
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
@@ -445,6 +445,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     id="output-graph",
                     children=graph
                 ),
+    
 
 ################################### layout
 
@@ -558,7 +559,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                 ]
                             )
                         ]
-                        )
+                        ),
                         ]
 
                         )
@@ -603,10 +604,8 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             if spec in list(concs.keys()):
                 concs[spec] = float(num) * 1e-6
             else:
-                print('errors!')
-        print(pd.Series(concs))
-            
-        
+                pass
+
     # update settings
     @app.callback(
         Output("placeholder2", "children"),
@@ -665,7 +664,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             )
 
             metadata=t.metadata
-            # del metadata['init_concs']
             metadata=pd.Series(metadata).reset_index()
             metadata=metadata.rename(columns={0: "value"})
 
@@ -739,15 +737,17 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             
             ### statistics 
             analyse=AnalyseSampling(t.data, markdown=True)
+            analyse.reaction_statistics()
             analyse.mean_sampling()
+            analyse.reaction_paths()
+
             mean=analyse.mean_data[ambient_settings["T"]
                 ][ambient_settings["P"]]
-            analyse.reaction_paths()
+            
             paths=pd.DataFrame(
                 analyse.common_paths[ambient_settings["T"]
                     ][ambient_settings["P"]]
             )
-            analyse.reaction_statistics()
             stats=pd.DataFrame(
                 analyse.stats[ambient_settings["T"]][ambient_settings["P"]]
             )
@@ -776,6 +776,15 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 style_as_list_view=False,
                 cell_selectable=False,
                 style_cell={
+                    "font_family": "helvetica",
+                    "align": "center",
+                    'padding-right': '10px',
+                    'padding-left': '10px',
+                    'text-align': 'center',
+                    'marginLeft': 'auto',
+                    'marginRight': 'auto'
+                },
+                style_header={
                     "font_family": "helvetica",
                     "align": "center",
                     'padding-right': '10px',
