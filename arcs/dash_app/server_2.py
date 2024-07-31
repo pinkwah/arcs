@@ -910,7 +910,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     "values": False,
                     "comps": False,
                     "variance":False,
-                    "error":(":.2E", df_m["variance"]),
+                    "error":(":.2e", df_m["variance"]),
                     "specie": df_m["comps"],
                     "PPM": (":.1f", df_m["values"]),
                 },
@@ -924,7 +924,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 coloraxis_showscale=False,
             )
             fig.update_xaxes(showgrid=False, tickangle=-60, tickmode="linear")
-            dtick=int(int(ymax - ymin) / 10)
+            try:
+                dtick=int(int(ymax - ymin) / 10)
+            except:
+                pass
             fig.update_yaxes(
                 showgrid=True,
                 tickmode="linear",

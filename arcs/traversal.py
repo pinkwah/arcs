@@ -125,7 +125,7 @@ class Traversal:
     
     def _get_weighted_reaction_rankings(self,T,P,
                                         choices,
-                                        max_rank=5,
+                                        max_rank=20,
                                         method='Bellman-Ford'):
         
         rankings = {}
@@ -144,9 +144,12 @@ class Traversal:
                     weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']*10**self._length_multiplier(self.graph[T][P][x[1]])
                     rankings[x[1]] = {'candidates':candidates,'weight':weight}
         if rankings:
-            topranks = [x for i,x in enumerate(rankings) if i<=max_rank]
+            sorted_rankings = pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()
+            topranks = [x for i,x in enumerate(sorted_rankings) if i<=max_rank] # need to sort first
             rankings = {x:rankings[x] for x in topranks}
-            return(pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()) # sort them according to lowest weight first
+            #return(pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()) # sort them 
+            #according to lowest weight first
+            return(rankings)
         else:
             return(None)
     
@@ -159,10 +162,10 @@ class Traversal:
         substances = {}
         for n in list(it.chain(*[list(r)+list(p)])):
             if n in list(charged_species.keys()):
-                s = Substance.from_formula(n,charge=charged_species[n])
+                s = Substance.from_formula(n,**{'charge':charged_species[n]})
                 substances[s.name] = s
             else:
-                s = Substance.from_formula(n)#,charge=0) # charge buggers up everything have removed for now....
+                s = Substance.from_formula(n,**{'charge':0})#,charge=0) # charge buggers up everything have removed for now....
                 substances[s.name] = s 
         eql = Equilibrium(reac=r,prod=p,param=k)
         try:
