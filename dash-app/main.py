@@ -5,7 +5,7 @@ import setproctitle
 import webview
 import warnings 
 from arcs.dash_app.domino import terminate_when_process_dies
-from arcs.dash_app.server_2 import start_dash
+from arcs.dash_app.server import start_dash
 
 
 def start():
@@ -32,7 +32,9 @@ def start():
     time.sleep(0.2)
 
     # Create the webview.
-    webview.create_window('ARCS 1.0.0', f'http://{host}:{port}',width=1000, height=1000)
+    webview.create_window('ARCS 1.0.0', f'http://{host}:{port}',
+                          width=1000, 
+                          height=1000)
     webview.start()
 
     # Reached when window is closed.

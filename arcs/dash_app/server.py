@@ -1,5 +1,4 @@
 from multiprocessing import Condition
-#from tkinter import W
 import dash
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
@@ -138,8 +137,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
 
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
-# cards ultimately we need to put this into a seperate pages sheet and just load them in
 
     loading_spinner = dls.Triangle(
         id="loading-1",
@@ -927,6 +924,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             try:
                 dtick=int(int(ymax - ymin) / 10)
             except:
+                dtick = None
                 pass
             fig.update_yaxes(
                 showgrid=True,
