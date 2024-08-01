@@ -59,7 +59,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
             # this is very janky - need to find a better way of storing the data
             correct_order = sorted([float(x) for x in list(slider)])
             # marks = {float(x):str('{:.2F}'.format(float(x))) for x in list(correct_order)}
-            marks = {int(x): str(x) for x in correct_order}
+            marks = {int(x): {'label':str(x),'style':{'color':'rgba(0.1,0.1,0.1,0)'}} for x in correct_order}
             minval = float(list(correct_order)[0])
             maxval = float(list(correct_order)[-1])
 
@@ -75,7 +75,6 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                                 ),
                             dcc.Slider(
                             className="form-range",
-                            style={'color':'red'}
                             id="slider-{}".format(key),
                             min=minval,
                             max=maxval,
@@ -138,8 +137,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-    loading_spinner = dls.Triangle(
+    loading_spinner = dls.Tunnel(
         id="loading-1",
+        width=100,
+        speed_multiplier=0.4,
         color="rgba(166, 38, 68,1)",
         fullscreen=True,
         children=html.Div(id="loading-output-1"),
@@ -253,11 +254,11 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 title="Concentration % Ceiling",
                 className="accordion",
                 children=[
-                    html.P(["The concentration % ceiling determines the border by which a component should be scaled down to allow for reactions with smaller components. The component value is then scaled by the amount specified in 'Largest Concentrations Scale Value'. It is important to note that this is only for choosing reactions and not the final value which remains as the large amount. This helps to alleviate situations where no reactions are expected in ARCS due to overweighting towards the large concentration components.",html.Br(),"Default = 1000%",html.Br()])
+                    html.P(["The concentration % ceiling determines the border by which a component should be scaled down to allow for reactions with smaller components. The component value is then scaled by the amount specified in 'Largest Concentrations Scale Value'. It is important to note that this is only for choosing reactions and not the final value which remains as the large amount. This helps to alleviate situations where no reactions are expected in ARCS due to overweighting towards the large concentration components.",html.Br(),"Default = 500%",html.Br()])
                     ,
                     dcc.Input(
                         id="ceiling",
-                        value="1000",
+                        value="500",
                         debounce=True,
                         # style={
                         #    "backgroundColor": backgroundcolours,
