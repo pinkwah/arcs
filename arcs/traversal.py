@@ -322,7 +322,6 @@ class Traversal:
     def sampling_serial(self,T=None,P=None,**kw):
         init_concs = copy.deepcopy(self.concs)
         result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
-        
         with tqdm(total=self.sample_length,bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
             for sample in range(self.sample_length):
                 result_dict[sample+1] = self.random_walk(T=T,P=P,
@@ -338,12 +337,20 @@ class Traversal:
         return(result_dict)
         
         
-    def run(self,trange,prange,ic=None,save=False,savename=None,ignore_warnings=True,**kw):
+    def run(self,trange,prange,ic=None,save=False,savename=None,ignore_warnings=True,logging=False,**kw):
         if ignore_warnings==True:
             warnings.filterwarnings("ignore")
+
         '''
         kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,nprocs,random_path_depth,co2=False
         '''
+        from loguru import logger
+        from io import StringIO
+        #setup logger
+        stream = StringIO()
+        logger.remove()
+        logger.add(stream,format="{message}")
+
         num=1
         total = len(trange) * len(prange)
         
@@ -353,7 +360,7 @@ class Traversal:
             if i in kw:
                 self.__dict__[i] = kw[i]
             
-        print('''\n                                             
+        logger.info('''\n                                             
                                             
     // | |     //   ) )  //   ) )  //   ) ) 
    //__| |    //___/ /  //        ((        
@@ -377,11 +384,14 @@ version:1.2
                                        self.max_rank,self.path_depth,self.co2,self.method,
                                        self.nprocs,self.ceiling,self.scale_highest,self.rank_small_reactions_higher))
         
-        print('initial concentrations (ppm):\n')
+        logger.info('initial concentrations (ppm):\n')
         self.concs = ic
         concstring = pd.Series({k:v for k,v, in self.concs.items() if v > 0}) / 1e-6
         del concstring['CO2']
-        print(concstring.to_string()+'\n')
+        logger.info(concstring.to_string()+'\n')
+
+        if logging:
+            print(stream.get_value())
         
         
         path_lengths = [] 
@@ -392,27 +402,26 @@ version:1.2
             initfinaldiff = {}
             for P in prange:
                 start = datetime.now()
-                print('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
+                logger.info('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
                 if self.nprocs > 1:
                     data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
                 else:
                     data_2[P] = self.sampling_serial(T,P,**kw)
                 finish = datetime.now() - start
-                print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
+                logger.info('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
                 reformatted = [{x:v for x,v in data_2[P][i]['data'].items()} for i in data_2[P]]
                 mean = pd.Series({k:v for k,v in pd.DataFrame(reformatted).mean().items() if v > 0.5e-6}).drop('CO2')/1e-6
                 #mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P]).keys()) if v > 0.5e-6}).drop('CO2')/1e-6
-                print('\n final concentrations (>0.5ppm):\n')
-                print(mean.round(1).to_string())
+                logger.info('\n final concentrations (>0.5ppm):\n')
+                logger.info(mean.round(1).to_string())
                 final_concs_2[P] = mean.to_dict()
                 diff_concs = pd.Series(mean.to_dict()) - pd.Series({k:v/1e-6 for k,v in self.concs.items()})
                 ift = pd.DataFrame([{k:v/1e-6 for k,v in self.concs.items() if v > 0},mean.to_dict(),diff_concs.to_dict()],index=['initial','final','change']).T
                 initfinaldiff[P] = ift.dropna(how='all').fillna(0.0).to_dict()
                 avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
-                #print('\n initial | final | difference in concentrations (>0.5ppm):\n')
-                #print(initfinaldiff[P].round(1).to_string())
 
-                print('\n median path length: {}'.format(avgpathlength))
+
+                logger.info('\n median path length: {}'.format(avgpathlength))
                 path_lengths.append(avgpathlength)
                 num+=1
             total_data[T] = data_2
@@ -448,5 +457,8 @@ version:1.2
                          'date':str(datetime.now())}
         
        
-        self.data = total_data                    
+        self.data = total_data  
+        if logging:
+            print(stream.get_value())                  
+
 #done

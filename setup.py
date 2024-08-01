@@ -27,6 +27,7 @@ setup(
         'monty',
         'dash_bootstrap_templates',
         'dash_bootstrap_components',
-                      'dash-loading-spinners'
+                      'dash-loading-spinners',
+                      'loguru'
         ],
     )
