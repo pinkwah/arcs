@@ -4,8 +4,8 @@ from multiprocessing import Process, Condition
 import setproctitle
 import webview
 import warnings 
-from arcs.arcs_dash.domino import terminate_when_process_dies
-from arcs.arcs_dash.server import start_dash
+from arcs.dash_app.domino import terminate_when_process_dies
+from arcs.dash_app.server import start_dash
 
 
 def start():
@@ -19,7 +19,7 @@ def start():
     setproctitle.setproctitle('arcs-0.1.0')
 
     # Spawn the dash process.
-    p = Process(target=start_dash, args=(host, port, server_is_started,'./assets/data/'))
+    p = Process(target=start_dash, args=(host, port, server_is_started,'./data/'))
     p.start()
     # If the dash process dies, follow along.
     terminate_when_process_dies(p)
