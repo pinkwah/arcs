@@ -4,8 +4,8 @@ from multiprocessing import Process, Condition
 import setproctitle
 import webview
 import warnings 
-from arcs.dash_app.domino import terminate_when_process_dies
-from arcs.dash_app.server import start_dash
+from arcs.arcs_dash.domino import terminate_when_process_dies
+from arcs.arcs_dash.server import start_dash
 
 
 def start():

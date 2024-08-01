@@ -1,4 +1,5 @@
 from multiprocessing import Condition
+from arcs.arcs_dash.domino import terminate_when_parent_process_dies
 import dash
 import dash_bootstrap_components as dbc
 from dash_bootstrap_templates import load_figure_template
@@ -17,7 +18,6 @@ from arcs.analysis import AnalyseSampling
 from arcs.traversal import Traversal
 import pickle
 import warnings
-from arcs.dash_app.domino import terminate_when_parent_process_dies
 
 
 def start_dash(host: str, port: int, server_is_started: Condition, file_locations="./"):

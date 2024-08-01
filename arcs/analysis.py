@@ -132,7 +132,6 @@ class AnalyseSampling:
         
     def reaction_paths(self,index_override=None):
         '''currently chooses the top reaction, and only does what comes after'''
-
         def _eqpath(pathsstats):
             _dict  = {}
             _dict['paths'] = {}
