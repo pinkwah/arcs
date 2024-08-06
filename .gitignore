@@ -1,2 +1,4 @@
 arcs/__pycache__
 arcs.egg-info
+.DS_STORE 
+.ipynb_checkpoints
