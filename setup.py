@@ -8,7 +8,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='arcs',
-    version='1.0.0',
+    version='1.4.0',
     description='automated reactions for CO2 storage',
     url="https://github.com/badw/arcs",
     author="Benjamin A. D. Williamson",
@@ -27,7 +27,7 @@ setup(
         'monty',
         'dash_bootstrap_templates',
         'dash_bootstrap_components',
-                      'dash-loading-spinners',
-                      'loguru'
+        'dash-loading-spinners',
+        'loguru'
         ],
     )

@@ -27,12 +27,11 @@ def start():
     # Wait until dash process is ready.
     with server_is_started:
         server_is_started.wait()
-    # FIXME this should not be needed, if server_is_started was triggered after app runs.
-    #  idk if that is possible.
+
     time.sleep(0.2)
 
     # Create the webview.
-    webview.create_window('ARCS 1.0.0', f'http://{host}:{port}',
+    webview.create_window('ARCS 1.4.0', f'http://{host}:{port}',
                           width=1000, 
                           height=1000)
     webview.start()

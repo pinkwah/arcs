@@ -475,7 +475,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
         style={'padding': '5rem'},
         children=[
             dbc.Row(logos),
-            html.P("ARCS 1.3.0"),
+            html.P("ARCS 1.4.0"),
             dbc.Row(
                 [
                     html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
@@ -722,7 +722,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     t.initfinaldiff[ambient_settings["T"]
                         ][ambient_settings["P"]]
                 )
-                .round(1)
+                .round(2)
                 .drop("CO2")
             )
             df_d=df_d.T
