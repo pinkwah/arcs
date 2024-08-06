@@ -9,6 +9,7 @@ from pathos.helpers import mp as pmp
 from chempy import balance_stoichiometry,Reaction
 from chempy.equilibria import Equilibrium
 from chempy.reactionsystem import Substance
+import warnings
 
 '''
 1. Starts with a ReactionDictionaryGenerator - which generates a combination of numbers
@@ -331,7 +332,7 @@ class MappingtoReaction:
                 reacs = {k:int(re[k]) for k in re}
                 prods = {k:int(pr[k]) for k in pr}
             except:
-                print('\n error with {}'.format(r))
+                warnings.warn('\n error with {}'.format(r))
             return(reacs,prods)
     
         screened = []

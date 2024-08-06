@@ -3,14 +3,49 @@ import pandas as pd
 from collections import defaultdict
 import numpy as np 
 from collections import Counter
+from dash import html
 
 class AnalyseSampling:
     
-    def __init__(self,data):
+    def __init__(self,data,markdown=False):
         if isinstance(data,str):
             self.data = loadfn(data)
         else:
             self.data = data
+        self.markdown=markdown
+            
+
+    def _latex_equation(self,equation):
+        r,p = equation.split('=')
+        reacs = r.split(' ')
+        prods = p.split(' ')
+        def _latex_format(reaction_elements):
+            reacs_adjusted = []
+            for i in reaction_elements:
+                try:
+                    int(i)
+                    reacs_adjusted.append(i)
+                except:
+                    if i == '+':
+                        reacs_adjusted.append(' + ')
+                    else:
+                        new_i = []
+                        for x in i:
+                            try:
+                                x = int(x)
+                                if self.markdown==True:
+                                    new_i.append('<sub>{}</sub>'.format(x))
+                                else:
+                                    new_i.append('$_{}$'.format(x))
+                            except:
+                                new_i.append(x)
+                        reacs_adjusted.append(''.join(new_i))
+            return(''.join(reacs_adjusted)) 
+    
+        rs = _latex_format(reacs)
+        ps = _latex_format(prods)
+        return(''.join([rs,' = ',ps]))
+
             
     def _get_stats(self,equations):
         appearances = defaultdict(int)
@@ -21,7 +56,10 @@ class AnalyseSampling:
         equation_statistics = {}
         for equation,frequency in appearances.items():
             eq,k = equation.split(';')
-            equation_statistics[eq] = {'k':k.split('\n')[0],'frequency':frequency}
+            if self.cancel_markdown == True:
+                equation_statistics[eq] = {'k':k.split('\n')[0],'frequency':frequency}
+            else: 
+                equation_statistics[self._latex_equation(eq)] = {'k':k.split('\n')[0],'frequency':frequency}
         try:
             d = pd.DataFrame(equation_statistics).T.sort_values(by='frequency',ascending=False)
             d = d.reset_index()
@@ -42,10 +80,12 @@ class AnalyseSampling:
                     if eqs:
                         equations.append(eqs)
                 try:
+                    
                     eqp[float(P)] = self._get_stats(equations)
                 except:
                     eqp[float(P)] = []
             eqt[float(T)] = eqp
+            
    
         self.stats = eqt
     
@@ -96,8 +136,8 @@ class AnalyseSampling:
                 r_2,k_2 = pathsstats['reaction 2'][i].split(';')
                 k_2 = float(k_2.split('k=')[1])
     
-                str1 = r_1 + '\n' + r_2 
-                str2 = str(k_1) + '\n' + str(k_2)
+                str1 = r_1 + ' \n ' + r_2 
+                str2 = str(k_1) + ' \n ' + str(k_2)
                 _dict['paths'][i] = str1
                 _dict['k'][i] = str2
             return(_dict)
@@ -108,13 +148,13 @@ class AnalyseSampling:
             for P in self.data[T]:
                 stats = {int(x):{y:{'reaction':d.split(';')[0],'k':d.split(';')[1]} 
                                  for y,d in enumerate(self.data[T][P][x]['equation_statistics']) if d} for x in self.data[T][P]}
-                
+                                
                 try:
                     if index_override == None: # should allow for clickable paths, ideally this should go through all paths
                         index = 0
                     else:
                         index = index_override
-                    
+                    self.cancel_markdown=True
                     self.reaction_statistics()
                     tr = str(self.stats[float(T)][float(P)]['index'][index])
                 except:
@@ -127,6 +167,8 @@ class AnalyseSampling:
                         for y in stats[x]:
                             if tr in stats[x][y]['reaction']:
                                  vs.append(x)
+                                    
+                self.cancel_markdown=False
 
                 p2l = []
                 for x in vs:
@@ -134,9 +176,16 @@ class AnalyseSampling:
                         for y in stats[x]:
                             if stats[x][y]['reaction'] == tr:
                                 try:
-                                    p2l.append(stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+stats[x][y+1]['reaction']+' ; k='+stats[x][y+1]['k'].split('\n')[0])
+                                    r1 = self._latex_equation(stats[x][y]['reaction'])
+                                    r2 = self._latex_equation(stats[x][y+1]['reaction'])
+                                    #p2l.append(stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+stats[x][y+1]['reaction']+' ; k='+stats[x][y+1]['k'].split('\n')[0])
+                                    p2l.append(r1+' ; k='+stats[x][y]['k'].split('\n')[0]+':'+r2+' ; k='+stats[x][y+1]['k'].split('\n')[0])
                                 except:
-                                    p2l.append(stats[x][y-1]['reaction']+' ; k='+stats[x][y-1]['k'].split('\n')[0]+':'+stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0])
+                                    r1 = self._latex_equation(stats[x][y-1]['reaction'])
+                                    r2 = self._latex_equation(stats[x][y]['reaction'])
+                                    #p2l.append(stats[x][y-1]['reaction']+' ; k='+stats[x][y-1]['k'].split('\n')[0]+':'+stats[x][y]['reaction']+' ; k='+stats[x][y]['k'].split('\n')[0])
+                                    p2l.append(r1+' ; k='+stats[x][y-1]['k'].split('\n')[0]+':'+r2+' ; k='+stats[x][y]['k'].split('\n')[0])
+
                 try:
                     frequencies = Counter(p2l)
                     fs = {frequencies[f]:{x:d for x,d in enumerate(f.split(':'))} for x,f in enumerate(frequencies)}
@@ -151,5 +200,7 @@ class AnalyseSampling:
 
             df1[float(T)] = df2
         self.common_paths = df1
+        self.cancel_markdown = False
+        self.reaction_statistics()
     
     

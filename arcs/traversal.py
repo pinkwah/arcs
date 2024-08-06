@@ -55,54 +55,10 @@ class Traversal:
         self.nprocs = 4    
         self.ceiling = 2000
         self.scale_highest=0.1
+        self.rank_small_reactions_higher=True
         self.method='Bellman-Ford'
-        self.final_concs = {}
-        
-
-        
-        # have an "update default values function"
-        
-    
-#    ######################################################################################################################################################        
-    def _get_weighted_random_compounds_DEPRECATED(self,T,P,
-                                       concs=None,
-                                       co2=False,
-                                       max_compounds=2,
-                                       probability_threshold=0.05,
-                                       ceiling=1000):     # doesnt' include looping
-        # 1. choose a compound
-        # 2. choose another compound
-        
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        temp_concs = copy.deepcopy(concs)            
-
-        if co2 == False:
-            del temp_concs['CO2']
-            
-        probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
-        available = [choice(list(temp_concs.keys()),
-                len(temp_concs),
-                p=list(probabilities.values()))][0]
-        num_species = len([x for x in temp_concs.values() if x > 0])
-        if max_compounds > num_species:
-            #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
-            max_compounds = num_species
-            
-            
-        choices = {}
-        for c in range(max_compounds): 
-            if c == 0:
-                c1 = random.choice([n for n in nodes if n in available])
-                if probabilities[c1] >= probability_threshold:
-                    choices[c1] = probabilities[c1]
-            else:
-                #c2 = random.choice([x for x in available if not x in choices])
-                c2 = random.choice([x for x in available])
-
-                if probabilities[c2] >= probability_threshold:
-                    choices[c2] = probabilities[c2]
-        return(choices)
-    
+        self.final_concs = {} 
+        self.initfinaldiff = {}
     
     def _get_weighted_random_compounds(self,T,P,
                              init_concs=None,
@@ -159,10 +115,17 @@ class Traversal:
                     
         return(choices)
     
+    def _length_multiplier(self,candidate):
+        if self.rank_small_reactions_higher:
+            return(len(list(candidate)))
+        else:
+            return(1)
+    
     def _get_weighted_reaction_rankings(self,T,P,
                                         choices,
-                                        max_rank=5,
+                                        max_rank=20,
                                         method='Bellman-Ford'):
+        
         rankings = {}
         if len(choices) > 1:
             
@@ -173,15 +136,18 @@ class Traversal:
                 if len(choices) > 2:
                     for c in list(choices)[2:]:
                         if c in candidates:
-                            weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']
+                            weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']*10**self._length_multiplier(self.graph[T][P][x[1]])
                             rankings[x[1]] = {'candidates':candidates,'weight':weight}
                 else:
-                    weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']
+                    weight = self.graph[T][P].get_edge_data(x[0],x[1])[0]['weight']*10**self._length_multiplier(self.graph[T][P][x[1]])
                     rankings[x[1]] = {'candidates':candidates,'weight':weight}
         if rankings:
-            topranks = [x for i,x in enumerate(rankings) if i<=max_rank]
+            sorted_rankings = pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()
+            topranks = [x for i,x in enumerate(sorted_rankings) if i<=max_rank] # need to sort first
             rankings = {x:rankings[x] for x in topranks}
-            return(pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()) # sort them according to lowest weight first
+            #return(pd.DataFrame(rankings).sort_values(by='weight',axis=1).to_dict()) # sort them 
+            #according to lowest weight first
+            return(rankings)
         else:
             return(None)
         
@@ -228,18 +194,20 @@ class Traversal:
         substances = {}
         for n in list(it.chain(*[list(r)+list(p)])):
             if n in list(charged_species.keys()):
-                s = Substance.from_formula(n,charge=charged_species[n])
+                s = Substance.from_formula(n,**{'charge':charged_species[n]})
                 substances[s.name] = s
             else:
-                s = Substance.from_formula(n,charge=0)
+                s = Substance.from_formula(n,**{'charge':0})#,charge=0) # charge buggers up everything have removed for now....
                 substances[s.name] = s 
+        eql = Equilibrium(reac=r,prod=p,param=k)
         try:
-            return(EqSystem([Equilibrium(r,p,k)],substances)) # might not just be able to try a return...
+            return(EqSystem([eql],substances)) # might not just be able to try a return...
         except:
             return(None)
         
         
     def equilibrium_concentrations(self,concs,eq):
+        # something is going wrong here...
         fc = copy.deepcopy(concs)
         try:
             x,sol,sane = eq.root(fc)
@@ -382,11 +350,39 @@ class Traversal:
 
 
         return(result_dict) 
+    
+    def sampling_serial(self,T=None,P=None,**kw):
+        init_concs = copy.deepcopy(self.concs)
+        result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
+        with tqdm(total=self.sample_length,bar_format='progress: {desc:<10}|{bar:50}|',ascii=' >=',position=0,leave=False) as pbar:
+            for sample in range(self.sample_length):
+                result_dict[sample+1] = self.random_walk(T=T,P=P,
+                                                       probability_threshold=self.probability_threshold,
+                                                       path_depth=self.path_depth,
+                                                       max_compounds=self.max_compounds,
+                                                       max_rank=self.max_rank,
+                                                       co2=self.co2,
+                                                       scale_highest=self.scale_highest,
+                                                       ceiling=self.ceiling,
+                                                       method=self.method)
+                pbar.update(1)
+        return(result_dict)
         
-    def run(self,trange,prange,ic=None,save=False,savename=None,**kw):
+        
+    def run(self,trange,prange,ic=None,save=False,savename=None,ignore_warnings=True,logging=False,**kw):
+        if ignore_warnings==True:
+            warnings.filterwarnings("ignore")
+
         '''
         kwargs = sample_length,probability_threshold,max_compounds,max_rank,path_depth,nprocs,random_path_depth,co2=False
         '''
+        from loguru import logger
+        from io import StringIO
+        #setup logger
+        stream = StringIO()
+        logger.remove()
+        logger.add(stream,format="{message}")
+
         num=1
         total = len(trange) * len(prange)
         
@@ -396,7 +392,7 @@ class Traversal:
             if i in kw:
                 self.__dict__[i] = kw[i]
             
-        print('''\n                                             
+        logger.info('''\n                                             
                                             
     // | |     //   ) )  //   ) )  //   ) ) 
    //__| |    //___/ /  //        ((        
@@ -414,16 +410,20 @@ version:1.2
         ->shortest path method = {}
         ->number of processes = {}
         ->concentration ceiling = {} %
-        ->scale highest = {}\n'''.format(str(datetime.now()),self.sample_length,
+        ->scale highest = {}
+        ->rank smaller reactions higher = {}\n'''.format(str(datetime.now()),self.sample_length,
                                        self.probability_threshold,self.max_compounds,
                                        self.max_rank,self.path_depth,self.co2,self.method,
-                                       self.nprocs,self.ceiling,self.scale_highest))
+                                       self.nprocs,self.ceiling,self.scale_highest,self.rank_small_reactions_higher))
         
-        print('initial concentrations (ppm):\n')
+        logger.info('initial concentrations (ppm):\n')
         self.concs = ic
         concstring = pd.Series({k:v for k,v, in self.concs.items() if v > 0}) / 1e-6
         del concstring['CO2']
-        print(concstring.to_string()+'\n')
+        logger.info(concstring.to_string()+'\n')
+
+        if logging:
+            print(stream.get_value())
         
         
         path_lengths = [] 
@@ -431,23 +431,35 @@ version:1.2
         for T in trange:
             data_2 = {}
             final_concs_2 = {}
+            initfinaldiff = {}
             for P in prange:
                 start = datetime.now()
-                print('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
-                data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
+                logger.info('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
+                if self.nprocs > 1:
+                    data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
+                else:
+                    data_2[P] = self.sampling_serial(T,P,**kw)
+
                 finish = datetime.now() - start
-                print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
-                mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
-                print('\n final concentrations (>0.5ppm):\n')
-                print(mean.to_string())
+                logger.info('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
+                reformatted = [{x:v for x,v in data_2[P][i]['data'].items()} for i in data_2[P]]
+                mean = pd.Series({k:v for k,v in pd.DataFrame(reformatted).mean().items() if v > 0.5e-6}).drop('CO2')/1e-6
+                #mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P]).keys()) if v > 0.5e-6}).drop('CO2')/1e-6
+                logger.info('\n final concentrations (>0.5ppm):\n')
+                logger.info(mean.round(1).to_string())
                 final_concs_2[P] = mean.to_dict()
+                diff_concs = pd.Series(mean.to_dict()) - pd.Series({k:v/1e-6 for k,v in self.concs.items()})
+                ift = pd.DataFrame([{k:v/1e-6 for k,v in self.concs.items() if v > 0},mean.to_dict(),diff_concs.to_dict()],index=['initial','final','change']).T
+                initfinaldiff[P] = ift.dropna(how='all').fillna(0.0).to_dict()
                 avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
-                print('\n median path length: {}'.format(avgpathlength))
+
+
+                logger.info('\n median path length: {}'.format(avgpathlength))
                 path_lengths.append(avgpathlength)
                 num+=1
             total_data[T] = data_2
             self.final_concs[T] = final_concs_2
-            
+            self.initfinaldiff[T] = initfinaldiff            
                 
         if save == True:
             from monty.serialization import dumpfn
@@ -456,7 +468,8 @@ version:1.2
                 today = str(date.today())
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
-        self.metadata = {'init_concs':self.concs,
+
+        self.metadata = {'arcs_version':1.4.0,
                          'avg_path_length':np.mean(path_lengths),
                          'co2':self.co2,
                          'max_compounds':self.max_compounds,
@@ -469,6 +482,7 @@ version:1.2
                          'nprocs':self.nprocs,
                          'ceiling':self.ceiling,
                          'scale_highest':self.scale_highest,
+                         'rank_small_reactions_higher':self.rank_small_reactions_higher,
                          'platform':platform.platform(),
                          'python_version':platform.python_version(),
                          'processor':platform.processor(),
@@ -477,5 +491,8 @@ version:1.2
                          'date':str(datetime.now())}
         
        
-        self.data = total_data                    
+        self.data = total_data  
+        if logging:
+            print(stream.get_value())                  
+
 #done

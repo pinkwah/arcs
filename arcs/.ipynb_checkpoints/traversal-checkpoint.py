@@ -56,53 +56,8 @@ class Traversal:
         self.ceiling = 2000
         self.scale_highest=0.1
         self.method='Bellman-Ford'
-        self.final_concs = {}
-        
-
-        
-        # have an "update default values function"
-        
-    
-#    ######################################################################################################################################################        
-    def _get_weighted_random_compounds_DEPRECATED(self,T,P,
-                                       concs=None,
-                                       co2=False,
-                                       max_compounds=2,
-                                       probability_threshold=0.05,
-                                       ceiling=1000):     # doesnt' include looping
-        # 1. choose a compound
-        # 2. choose another compound
-        
-        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
-        temp_concs = copy.deepcopy(concs)            
-
-        if co2 == False:
-            del temp_concs['CO2']
-            
-        probabilities = {k:v/sum(temp_concs.values()) for k,v in temp_concs.items()}
-        available = [choice(list(temp_concs.keys()),
-                len(temp_concs),
-                p=list(probabilities.values()))][0]
-        num_species = len([x for x in temp_concs.values() if x > 0])
-        if max_compounds > num_species:
-            #print('Warning: max_compounds {} > {} -> now {}'.format(max_compounds,num_species,num_species)) 
-            max_compounds = num_species
-            
-            
-        choices = {}
-        for c in range(max_compounds): 
-            if c == 0:
-                c1 = random.choice([n for n in nodes if n in available])
-                if probabilities[c1] >= probability_threshold:
-                    choices[c1] = probabilities[c1]
-            else:
-                #c2 = random.choice([x for x in available if not x in choices])
-                c2 = random.choice([x for x in available])
-
-                if probabilities[c2] >= probability_threshold:
-                    choices[c2] = probabilities[c2]
-        return(choices)
-    
+        self.final_concs = {} 
+        self.initfinaldiff = {} 
     
     def _get_weighted_random_compounds(self,T,P,
                              init_concs=None,
@@ -431,6 +386,7 @@ version:1.2
         for T in trange:
             data_2 = {}
             final_concs_2 = {}
+            initfinaldiff = {}
             for P in prange:
                 start = datetime.now()
                 print('\n {}/{}: temperature = {}K, pressure = {}bar '.format(num,total,T,P),end='\n')
@@ -439,15 +395,21 @@ version:1.2
                 print('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
                 mean = pd.Series({x:v for x,v in np.mean(pd.DataFrame(data_2[P][i]['data'] for i in data_2[P])).items() if v > 0.5e-6}).drop('CO2')/1e-6
                 print('\n final concentrations (>0.5ppm):\n')
-                print(mean.to_string())
+                print(mean.round(1).to_string())
                 final_concs_2[P] = mean.to_dict()
+                diff_concs = pd.Series(mean.to_dict()) - pd.Series({k:v/1e-6 for k,v in self.concs.items()})
+                ift = pd.DataFrame([{k:v/1e-6 for k,v in self.concs.items() if v > 0},mean.to_dict(),diff_concs.to_dict()],index=['initial','final','change']).T
+                initfinaldiff[P] = ift.dropna(how='all').fillna(0.0).to_dict()
                 avgpathlength = np.median([data_2[P][i]['path_length'] for i in data_2[P] if not data_2[P][i]['path_length'] == None])
+                #print('\n initial | final | difference in concentrations (>0.5ppm):\n')
+                #print(initfinaldiff[P].round(1).to_string())
+
                 print('\n median path length: {}'.format(avgpathlength))
                 path_lengths.append(avgpathlength)
                 num+=1
             total_data[T] = data_2
             self.final_concs[T] = final_concs_2
-            
+            self.initfinaldiff[T] = initfinaldiff            
                 
         if save == True:
             from monty.serialization import dumpfn
@@ -456,7 +418,8 @@ version:1.2
                 today = str(date.today())
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
-        self.metadata = {'init_concs':self.concs,
+            
+        self.metadata = {'arcs_version':1.4.0,
                          'avg_path_length':np.mean(path_lengths),
                          'co2':self.co2,
                          'max_compounds':self.max_compounds,
@@ -478,3 +441,4 @@ version:1.2
         
        
         self.data = total_data                    
+#done

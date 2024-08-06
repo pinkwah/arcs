@@ -1,0 +1,1 @@
+/Users/badw/Documents/equinor-project/notebooks/phase-2/stage-2/applied_data/SCAN_reactions.p
