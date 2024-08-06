@@ -469,7 +469,7 @@ version:1.2
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
 
-        self.metadata = {'arcs_version':1.4.0,
+        self.metadata = {'arcs_version':"1.4.0",
                          'avg_path_length':np.mean(path_lengths),
                          'co2':self.co2,
                          'max_compounds':self.max_compounds,

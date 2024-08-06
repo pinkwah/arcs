@@ -450,7 +450,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 ),
                 style={
                     #"width": "50%",
-                    "height": "50%",
+                    "height": "30%",
                     "padding": "0.05rem",
                     "align": "end",
                 },
@@ -474,10 +474,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     app.layout = html.Div(
         style={'padding': '5rem'},
         children=[
-            dbc.Row(logos),
-            html.P("ARCS 1.4.0"),
+            dbc.Row(dbc.Col(logos)),
             dbc.Row(
                 [
+                    html.P("ARCS 1.4.0"),
                     html.H3(["Automated Reactions for ","C", "O", html.Sub(2), " Conversion (ARCS)"]),
                     html.Div(
                         [offcanvas,
