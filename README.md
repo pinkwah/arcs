@@ -9,6 +9,3 @@ Automated Reactions for CO<sub>2</sub> Storage
 ## Installation
 
 `pip install -e . ` 
-
-## DASH support for a user interface now included
-

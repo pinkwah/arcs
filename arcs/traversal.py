@@ -39,6 +39,7 @@ class Traversal:
             self.reactions = pickle.load(open(reactions,'rb'))
         else:
             self.reactions = reactions
+        #self.concs = copy.deepcopy(concs) # saves having to reload the class each time
         self.trange = list(self.graph)
         self.prange = list(self.graph[self.trange[0]])
 
@@ -58,9 +59,6 @@ class Traversal:
         self.method='Bellman-Ford'
         self.final_concs = {} 
         self.initfinaldiff = {}
-    
-#########################################################################################################################################        
-  
     
     def _get_weighted_random_compounds(self,T,P,
                              init_concs=None,
@@ -152,6 +150,40 @@ class Traversal:
             return(rankings)
         else:
             return(None)
+        
+
+    def _random_choice_unconnected(self,T,P,force_direct=False,co2=False): # currently randomly disjointed reactions that are weighted
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct == True:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=None) 
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
+
+    def _random_choice_connected(self,T,P,force_direct=False,previous_index=None,co2=False): # this will be joined - I think we can also make a ranking of potential reactions based upon components in the stream as well 
+        if previous_index == None:
+            raise ValueError('no previous compound selected')
+        nodes = [n for n in self.graph[T][P].nodes() if isinstance(n,str)]
+        if force_direct == True:
+            pstring = [0,1,2]
+            while len(pstring) > 2:
+                present = [c for c in list(self.reactions[T][P][previous_index]['e'].reac) + list(self.reactions[T][P][previous_index]['e'].prod) ] # this should probably be weighted according to stoichiometry i.e. 2CO2 + H2O = [CO2, CO2, H2O]
+                source = self._get_weighted_random_compound(T,P,co2=co2,force_selection=present)
+                target = random.choice(nodes) # the next path will be random 
+                p = nx.shortest_path(self.graph[T][P],source,target,weight='weight')
+                pstring = [n for n in p if isinstance(p,str)]
+        else:
+                source = self._get_weighted_random_compound(T,P)
+                target = random.choice(nodes)
+                p = nx.shortest_path(self.graph[T][P],source,target)
+        return(p)
     
     def generate_eqsystem(self,index,T,P):
         charged_species = {'CO3H':-1,'NH4':+1,'NH2CO2':-1} # this needs to be added to the arguments
@@ -281,9 +313,7 @@ class Traversal:
         init_concs = copy.deepcopy(self.concs)
         result_dict = {0:{'data':init_concs,'equation_statistics':[],'path_length':None}}
         #start the queue
-        #out_queue = pmp.Queue() # previous
-        manager = pmp.Manager()
-        out_queue = manager.Queue()
+        out_queue = pmp.Queue()
         samples = list(range(1,self.sample_length+1,1))
         data_chunks = [samples[chunksize*i:chunksize*(i+1)] 
                             for i in range(self.nprocs) 
@@ -315,7 +345,9 @@ class Traversal:
         for proc in jobs:
             proc.join()
 
-        #out_queue.close()
+        out_queue.close()
+        
+
 
         return(result_dict) 
     
@@ -407,6 +439,7 @@ version:1.2
                     data_2[P] =  self.sampling_multiprocessing(T,P,**kw)
                 else:
                     data_2[P] = self.sampling_serial(T,P,**kw)
+
                 finish = datetime.now() - start
                 logger.info('-> completed in {} seconds'.format(finish.total_seconds()),end='\n')
                 reformatted = [{x:v for x,v in data_2[P][i]['data'].items()} for i in data_2[P]]
@@ -435,7 +468,8 @@ version:1.2
                 today = str(date.today())
                 savename='sampling_{}.json'.format(today)
             dumpfn(total_data,savename,indent=4)
-        self.metadata = {'arcs_version':1.3,
+
+        self.metadata = {'arcs_version':1.4.0,
                          'avg_path_length':np.mean(path_lengths),
                          'co2':self.co2,
                          'max_compounds':self.max_compounds,
