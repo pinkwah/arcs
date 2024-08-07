@@ -50,10 +50,10 @@ setup(
             "Topic :: Other/Nonlisted Topic",
             "Topic :: Scientific/Engineering",
         ],
-    entry_points = {
-        "console_scripts":[
-            "arcs-app = app.arcs_app:start"
-            ]
-        },
+    #entry_points = {
+    #    "console_scripts":[
+    #        "arcs-app = app.arcs_app:start"
+    #        ]
+    #    },
     #include_package_data=True
     )

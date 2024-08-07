@@ -11,6 +11,7 @@ def start():
     warnings.simplefilter('ignore')
     port = int(os.getenv("PORT", "8050"))
     host = os.getenv("HOST", "127.0.0.1")
+    this_dir, this_filename = os.path.split(__file__)
     file_location = os.path.join(os.path.dirname(__file__),'data/')
     server_is_started = Condition()
 

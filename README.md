@@ -16,10 +16,10 @@ Version 1.4.0
 
 The user interface is created using the DASH framework
 
-The `arcs-app` can be run anywhere in the terminal by typing 
+The `arcs-app` can be run from the `app` directory in the terminal through; 
 
 ```
-arcs-app
+python app/arcs-app
 ```
 
 new data can be applied by placing in the 
