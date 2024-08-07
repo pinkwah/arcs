@@ -14,7 +14,11 @@ setup(
     author="Benjamin A. D. Williamson",
     author_email="benjamin.williamson@ntnu.no",
     license='MIT',
-    packages=find_packages(),
+    packages=['arcs','arcs/dash_app','app'],
+    package_data={'arcs/dash_app':['./assets/style.css',
+                                  './assets/images/logos.png'],
+                  'app':['./data/*']
+                  },
     install_requires=[
         'ase==3.23.0',
         'pymatgen==2024.4.13', 
@@ -48,7 +52,8 @@ setup(
         ],
     entry_points = {
         "console_scripts":[
-            "arcs-app = dash_app.arcs_app:start"
+            "arcs-app = app.arcs_app:start"
             ]
         },
+    #include_package_data=True
     )
