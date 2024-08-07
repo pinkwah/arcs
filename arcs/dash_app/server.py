@@ -351,7 +351,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 className="accordion",
                 children=[
                     html.P(
-                        "Sometimes the simplest solutions are the most plausible. Rank Smaller reactions higher in the list. \n Default = True"),
+                        ["Sometimes the simplest solutions are the most plausible. Rank Smaller reactions higher in the list.",html.Br(), "Default = True",html.Br()]),
                     dbc.RadioItems(
                         id="rank_small_reactions",
                         className="btn btn-outline-primary",
@@ -716,7 +716,7 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     t.initfinaldiff[ambient_settings["T"]
                         ][ambient_settings["P"]]
                 )
-                .round(2)
+                .round(1)
                 .drop("CO2")
             )
             df_d=df_d.T
@@ -884,10 +884,10 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                     "variance_minus":-df_m_t['variance'].values
                 }
             )
-            maxval=np.max(
-                [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
-            )
-            ymin, ymax=[-maxval, maxval]
+            #maxval=np.max(
+            #    [np.abs(df_m["values"].min()), np.abs(df_m["values"].max())]
+            #)
+            #ymin, ymax=[-maxval, maxval]
 
             fig=px.bar(
                 df_m,
@@ -916,22 +916,22 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
                 coloraxis_showscale=False,
             )
             fig.update_xaxes(showgrid=False, tickangle=-60, tickmode="linear")
-            try:
-                dtick=int(int(ymax - ymin) / 10)
-            except:
-                dtick = None
-                pass
-            fig.update_yaxes(
-                showgrid=True,
-                tickmode="linear",
-                range=[ymin - 2, ymax + 2],
-                dtick=dtick,
-            )
+            #try:
+            #    dtick=int(int(ymax - ymin) / 10)
+            #except:
+            #    dtick = None
+            #    pass
+            #fig.update_yaxes(
+            #    showgrid=True,
+            #    tickmode="linear",
+            #    range=[ymin - 2, ymax + 2],
+            #    dtick=dtick,
+            #)
 
             resultsgraph=dcc.Graph(
                 figure=fig,
-                animate=True,
-                config={"scrollZoom": True},
+                animate=False,
+                #config={"scrollZoom": True},
                 #style={"height": "60rem", "width": "100%"},
             )
 

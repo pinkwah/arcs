@@ -22,8 +22,8 @@ setup(
     install_requires=[
         'ase==3.23.0',
         'pymatgen==2024.4.13', 
-        'scipy', 
-        'numpy',
+        'scipy==1.14.0', 
+        'numpy==1.26.4',
         'chempy==0.9.0',
         'tqdm',
         'networkx==3.2.1',
@@ -34,9 +34,11 @@ setup(
         'dash_bootstrap_components==1.5.0',
         'dash-loading-spinners==1.0.3',
         'dash-core-components==2.0.0',
-        'loguru==0.7.2'
+        'loguru==0.7.2',
+        'pywebview',
+        'setproctitle'
         ],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     classifiers=[
             "Programming Language :: Python :: 3.9",
             "Programming Language :: Python :: 3.10",
