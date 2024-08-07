@@ -130,11 +130,12 @@ def start_dash(host: str, port: int, server_is_started: Condition, file_location
     ###################### layout of DASH template########################
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-    loading_spinner = dls.Tunnel(
+    loading_spinner = dls.Rotate(
         id="loading-1",
-        width=100,
-        speed_multiplier=0.4,
-        color="rgba(166, 38, 68,1)",
+        width=150,
+        margin=9,
+        speed_multiplier=0.8,
+        color="rgba(58, 136, 254,1)",
         fullscreen=True,
         children=html.Div(id="loading-output-1"),
         fullscreen_style={"background-color": "rgba(0.1,0.1,0.1,0.2)"},
