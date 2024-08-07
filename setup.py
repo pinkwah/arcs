@@ -15,19 +15,40 @@ setup(
     author_email="benjamin.williamson@ntnu.no",
     license='MIT',
     packages=find_packages(),
-    install_requires=['ase',
-        'pymatgen', 
+    install_requires=[
+        'ase==3.23.0',
+        'pymatgen==2024.4.13', 
         'scipy', 
         'numpy',
-        'chempy',
+        'chempy==0.9.0',
         'tqdm',
-        'networkx',
-        'pathos',
-        'dash',
-        'monty',
-        'dash_bootstrap_templates',
-        'dash_bootstrap_components',
-        'dash-loading-spinners',
-        'loguru'
+        'networkx==3.2.1',
+        'pathos==0.3.1',
+        'dash==2.17.1',
+        'monty==2024.2.26',
+        'dash_bootstrap_templates==1.1.1',
+        'dash_bootstrap_components==1.5.0',
+        'dash-loading-spinners==1.0.3',
+        'dash-core-components==2.0.0',
+        'loguru==0.7.2'
         ],
+    python_requires=">=3.9",
+    classifiers=[
+            "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
+            "Development Status :: 3 - Beta",
+            "Intended Audience :: Science/Research",
+            "Intended Audience :: System Administrators",
+            "Intended Audience :: Industry",
+            "Intended Audience :: Information Technology",
+            "Operating System :: OS Independent",
+            "Topic :: Other/Nonlisted Topic",
+            "Topic :: Scientific/Engineering",
+        ],
+    entry_points = {
+        "console_scripts":[
+            "arcs-app = dash_app.arcs_app:start"
+            ]
+        },
     )
