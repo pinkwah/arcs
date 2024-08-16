@@ -17,6 +17,8 @@ RUN pip install .
 # Expose any necessary ports (if your application needs it, e.g., for Dash)
 EXPOSE 8050
 
+USER 1001
+
 # Run the application (replace this with your application command)
 ENV HOST=0.0.0.0
 CMD ["python", "app/arcs_app.py"]
