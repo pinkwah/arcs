@@ -13,3 +13,10 @@ spec:
         - name: http
           port: 8050
       publicPort: http
+      resources:
+        limits:
+          memory: 4000M
+        requests:
+          cpu: 500m
+          memory: 4000M
+          
