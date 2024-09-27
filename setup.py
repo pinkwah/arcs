@@ -37,6 +37,10 @@ setup(
         'loguru==0.7.2',
         'pywebview',
         'setproctitle'
+        'pytest',
+        'fastapi',
+        'uvicorn',
+        'pydantic',
         ],
     python_requires=">=3.10",
     classifiers=[
