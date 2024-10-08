@@ -36,7 +36,7 @@ setup(
         'dash-core-components==2.0.0',
         'loguru==0.7.2',
         'pywebview',
-        'setproctitle'
+        'setproctitle',
         'pytest',
         'fastapi',
         'uvicorn',
