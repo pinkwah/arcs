@@ -7,6 +7,10 @@ spec:
     - name: dev
       build:
         from: main
+  dnsAlias:
+    - alias: arcs
+      component: server
+      environment: dev
   components:
     - name: server
       ports:
