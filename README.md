@@ -1,12 +1,7 @@
-# ARCS
+# ARCS - Automated Reactions for CO<sub>2</sub> Storage
 <p align="center">
  <img src="./assets/ARCS_Logo.png" width="300" height="300">
 </p>
-
-
-Automated Reactions for CO<sub>2</sub> Storage
-
-Version 0.1.0
 
 ## Installation
 To install Arcs using the standard `pip` Python package manager, after having checked out this repository, use:
