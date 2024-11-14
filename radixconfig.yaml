@@ -23,4 +23,17 @@ spec:
         requests:
           cpu: 500m
           memory: 8000M
+    - name: api
+      dockerfileName: Dockerfile_api
+      ports:
+        - name: http
+          port: 5001
+      publicPort: http
+      resources:
+        limits:
+          memory: 8000M
+        requests:
+          cpu: 500m
+          memory: 8000M
+
           
