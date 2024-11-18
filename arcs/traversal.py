@@ -1,4 +1,5 @@
 from __future__ import annotations
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Literal, Any
 
@@ -184,7 +185,7 @@ def _equilibrium_concentrations(
     concs: dict[str, float], eq: EqSystem
 ) -> tuple[dict[str, float], str]:
     # something is going wrong here...
-    fc = copy.deepcopy(concs)
+    fc = defaultdict(lambda: 0.0, concs)
     try:
         x, sol, sane = eq.root(fc)
         assert sol["success"] and sane
@@ -217,11 +218,11 @@ def _random_walk(
     reactions: dict[int, Any],
     graph: nx.MultiDiGraph,
 ):
-    final_concs = {0: copy.deepcopy(concs)}
-    reactionstats = {0: None}
+    final_concs = [concs]
+    reactionstats = []
 
-    for ip in range(1, path_depth + 1):
-        fcs = copy.deepcopy(final_concs[ip - 1])
+    for _ in range(path_depth):
+        fcs = final_concs[-1]
         try:
             choices = _get_weighted_random_compounds(
                 temperature,
@@ -235,10 +236,8 @@ def _random_walk(
                 rng=rng,
             )
         except Exception:
-            path_depth = ip + 1
             break
-        if len(choices) <= 1:  # not sure this is necessary....
-            path_depth = ip + 1
+        if len(choices) <= 1:
             break
         rankings = _get_weighted_reaction_rankings(
             temperature,
@@ -267,7 +266,7 @@ def _random_walk(
             chosen_reaction, temperature, pressure, reactions=reactions
         )
         # if reaction was previous reaction then break
-        path_available = [r for r in reactionstats.values() if r is not None]
+        path_available = [r for r in reactionstats if r is not None]
         if path_available:
             if (
                 eqsyst.string() == path_available[-1]
@@ -275,12 +274,14 @@ def _random_walk(
             ):
                 break  # extra break
 
-        final_concs[ip], reactionstats[ip] = _equilibrium_concentrations(fcs, eqsyst)
+        a, b = _equilibrium_concentrations(fcs, eqsyst)
+        final_concs.append(a)
+        reactionstats.append(b)
 
     return {
-        "data": final_concs[list(final_concs)[-1]],
-        "equation_statistics": [r for r in reactionstats.values() if r is not None],
-        "path_length": len([r for r in reactionstats.values() if r is not None]),
+        "data": final_concs[-1],
+        "equation_statistics": [r for r in reactionstats if r is not None],
+        "path_length": len([r for r in reactionstats if r is not None]),
     }
 
 
@@ -303,10 +304,7 @@ def _sample(
     reactions: dict[int, Any],
     graph: nx.MultiDiGraph,
 ) -> dict[int, Any]:
-    init_concs = copy.deepcopy(concs)
-    result_dict = {
-        0: {"data": init_concs, "equation_statistics": [], "path_length": None}
-    }
+    result_dict = {0: {"data": concs, "equation_statistics": [], "path_length": None}}
     with tqdm(
         total=sample_length,
         bar_format="progress: {desc:<10}|{bar:50}|",
@@ -318,7 +316,7 @@ def _sample(
             result_dict[sample + 1] = _random_walk(
                 temperature,
                 pressure,
-                init_concs,
+                concs,
                 probability_threshold=probability_threshold,
                 path_depth=path_depth,
                 max_compounds=max_compounds,
@@ -339,7 +337,7 @@ def _sample(
 def traverse(
     temperature: int,
     pressure: int,
-    concs: dict[str, float] | None = None,
+    concs: dict[str, float],
     *,
     co2: bool = False,
     max_compounds: int = 5,
@@ -362,7 +360,6 @@ def traverse(
     if reactions is None:
         reactions = get_reactions(temperature, pressure)
 
-    concs = {**concs}
     concstring = pd.Series({k: v for k, v in concs.items() if v > 0}) / 1e-6
     if "CO2" in concstring:
         del concstring["CO2"]
