@@ -6,12 +6,11 @@ from collections import Counter
 
 
 class AnalyseSampling:
-    def __init__(self, data, markdown=False):
+    def __init__(self, data):
         if isinstance(data, str):
             self.data = loadfn(data)
         else:
             self.data = data
-        self.markdown = markdown
 
     def _latex_equation(self, equation):
         r, p = equation.split("=")
@@ -32,10 +31,7 @@ class AnalyseSampling:
                         for x in i:
                             try:
                                 x = int(x)
-                                if self.markdown is True:
-                                    new_i.append("<sub>{}</sub>".format(x))
-                                else:
-                                    new_i.append("$_{}$".format(x))
+                                new_i.append("<sub>{}</sub>".format(x))
                             except ValueError:
                                 new_i.append(x)
                         reacs_adjusted.append("".join(new_i))
@@ -61,16 +57,10 @@ class AnalyseSampling:
         equation_statistics = {}
         for equation, frequency in appearances.items():
             eq, k = equation.split(";")
-            if self.markdown is True:
-                equation_statistics[eq] = {
-                    "k": k.split("\n")[0],
-                    "frequency": frequency,
-                }
-            else:
-                equation_statistics[self._latex_equation(eq)] = {
-                    "k": k.split("\n")[0],
-                    "frequency": frequency,
-                }
+            equation_statistics[eq] = {
+                "k": k.split("\n")[0],
+                "frequency": frequency,
+            }
         try:
             d = pd.DataFrame(equation_statistics).T.sort_values(
                 by="frequency", ascending=False
@@ -154,7 +144,6 @@ class AnalyseSampling:
                 index = 0
             else:
                 index = index_override
-            self.cancel_markdown = True
             self.reaction_statistics()
             tr = str(self.stats["index"][index])
         except Exception:
@@ -167,8 +156,6 @@ class AnalyseSampling:
                 for y in stats[x]:
                     if tr in stats[x][y]["reaction"]:
                         vs.append(x)
-
-        self.cancel_markdown = False
 
         p2l = []
         for x in vs:
@@ -218,5 +205,4 @@ class AnalyseSampling:
             df1 = {"frequency": [None], "paths": [None], "k": [None]}
 
         self.common_paths = df1
-        self.cancel_markdown = False
         self.reaction_statistics()
