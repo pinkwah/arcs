@@ -71,7 +71,7 @@ def run_simulation(form: SimulationRequest):
         sample_length=form.samples,
     )
 
-    analysis = AnalyseSampling(results.data, markdown=True)
+    analysis = AnalyseSampling(results.data)
     analysis.reaction_statistics()
     analysis.mean_sampling()
     analysis.reaction_paths()
