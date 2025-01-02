@@ -1,19 +1,22 @@
+from typing import Any, Hashable, no_type_check
 import pandas as pd
 from collections import defaultdict
 import numpy as np
 from collections import Counter
 
+from .traversal import _RandomWalk
+
 
 class AnalyseSampling:
-    def __init__(self, data):
+    def __init__(self, data: dict[int, _RandomWalk]) -> None:
         self.data = data
 
-    def _latex_equation(self, equation):
+    def _latex_equation(self, equation: str) -> str:
         r, p = equation.split("=")
         reacs = r.split(" ")
         prods = p.split(" ")
 
-        def _latex_format(reaction_elements):
+        def _latex_format(reaction_elements: list[str]) -> str:
             reacs_adjusted = []
             for i in reaction_elements:
                 try:
@@ -26,8 +29,7 @@ class AnalyseSampling:
                         new_i = []
                         for x in i:
                             try:
-                                x = int(x)
-                                new_i.append("<sub>{}</sub>".format(x))
+                                new_i.append("<sub>{}</sub>".format(int(x)))
                             except ValueError:
                                 new_i.append(x)
                         reacs_adjusted.append("".join(new_i))
@@ -37,15 +39,14 @@ class AnalyseSampling:
         ps = _latex_format(prods)
         return "".join([rs, " = ", ps])
 
-    def _sci_notation(self, number, sig_fig=2):
+    def _sci_notation(self, number: float, sig_fig: int = 2) -> str:
         ret_string = "{0:.{1:d}e}".format(number, sig_fig)
         a, b = ret_string.split("e")
         # remove leading "+" and strip leading zeros
-        b = int(b)
-        return a + " * 10^" + str(b)
+        return a + " * 10^" + str(int(b))
 
-    def _get_stats(self, equations):
-        appearances = defaultdict(int)
+    def _get_stats(self, equations: list[list[str]]) -> dict[Hashable, Any]:
+        appearances: dict[str, int] = defaultdict(int)
         for sample in equations:
             for i in sample:
                 appearances[i] += 1
@@ -63,24 +64,24 @@ class AnalyseSampling:
             )
             d = d.reset_index()
             d.T["index"] = "reaction"
-            d = d.to_dict()
+            return d.to_dict()
         except Exception:
-            d = {}
-        return d
+            pass
+        return {}
 
-    def reaction_statistics(self):
-        equations = []
+    def reaction_statistics(self) -> None:
+        equations: list[list[str]] = []
         for x in self.data:
             eqs = self.data[x]["equation_statistics"]
             if eqs:
                 equations.append(eqs)
         self.stats = self._get_stats(equations)
 
-    def mean_sampling(self):
+    def mean_sampling(self) -> None:
         final_concentrations = {}
         mean_values = {}
 
-        compounds = set()
+        compounds: set[str] = set()
         for sample in self.data.values():
             compounds.update(sample["data"].keys())
 
@@ -102,9 +103,10 @@ class AnalyseSampling:
         self.mean_data = mean_values
         self.final_concs = final_concentrations
 
-    def reaction_paths(self, index_override=None):
+    def reaction_paths(self, index_override: int | None = None) -> None:
         """currently chooses the top reaction, and only does what comes after"""
 
+        @no_type_check
         def _eqpath(pathsstats):
             _dict = {}
             _dict["paths"] = {}
@@ -193,7 +195,7 @@ class AnalyseSampling:
             }
             df = pd.DataFrame(dict(reversed(sorted(fs.items())))).T.reset_index()
 
-            df.columns = "frequency", "reaction 1", "reaction 2"
+            df.columns = pd.Index(("frequency", "reaction 1", "reaction 2"))
             df.set_index("frequency")
             dict_ = df.to_dict()
             df1 = _eqpath(dict_)
