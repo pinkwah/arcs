@@ -1,4 +1,3 @@
-from monty.serialization import loadfn
 import pandas as pd
 from collections import defaultdict
 import numpy as np
@@ -7,10 +6,7 @@ from collections import Counter
 
 class AnalyseSampling:
     def __init__(self, data):
-        if isinstance(data, str):
-            self.data = loadfn(data)
-        else:
-            self.data = data
+        self.data = data
 
     def _latex_equation(self, equation):
         r, p = equation.split("=")
