@@ -32,3 +32,7 @@ This command assumes you have `git lfs` installed. On macOS you can install it u
 brew install git-lfs
 git lfs install
 ```
+
+## History / Credits
+
+This is a fork of the original [ARCS](https://github.com/badw/arcs) developed by Benjamin A. D. Williamson 
