@@ -35,4 +35,4 @@ git lfs install
 
 ## History / Credits
 
-This is a fork of the original [ARCS](https://github.com/badw/arcs) developed by Benjamin A. D. Williamson 
+This is a fork of the original [ARCS](https://github.com/badw/arcs) developed by Benjamin A. D. Williamson. A legacy version of ARCS, based on Bens original version, is deployed [here](https://server-arcs-legacy-dash.radix.equinor.com/) as a demo.
