@@ -177,14 +177,6 @@ def _generate_eqsystem(
         return None
 
 
-def c_phase_transfer_reaction_idxs(eqsys: EqSystem):
-    return [
-        idx
-        for idx, rxn in enumerate(eqsys.rxns)
-        if rxn.has_precipitates(eqsys.substances)
-    ]
-
-
 def c_get_neqsys_chained_conditional(eqsys: EqSystem):
     from pyneqsys import ConditionalNeqSys, ChainedNeqSys
 
@@ -193,20 +185,7 @@ def c_get_neqsys_chained_conditional(eqsys: EqSystem):
             NumSysLog, conds, rref_equil=False, rref_preserv=False
         )
 
-    return ChainedNeqSys(
-        [
-            ConditionalNeqSys(
-                [
-                    (
-                        eqsys._fw_cond_factory(ri),
-                        eqsys._bw_cond_factory(ri, NumSysLog.small),
-                    )
-                    for ri in c_phase_transfer_reaction_idxs(eqsys)
-                ],
-                factory,
-            )
-        ]
-    )
+    return ChainedNeqSys([ConditionalNeqSys([], factory)])
 
 
 def c_root(
