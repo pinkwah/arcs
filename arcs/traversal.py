@@ -178,14 +178,14 @@ def _generate_eqsystem(
 
 
 def c_get_neqsys_chained_conditional(eqsys: EqSystem):
-    from pyneqsys import ConditionalNeqSys, ChainedNeqSys
+    from pyneqsys import ConditionalNeqSys
 
     def factory(conds):
         return eqsys._SymbolicSys_from_NumSys(
             NumSysLog, conds, rref_equil=False, rref_preserv=False
         )
 
-    return ChainedNeqSys([ConditionalNeqSys([], factory)])
+    return ConditionalNeqSys([], factory)
 
 
 def c_root(
