@@ -177,16 +177,36 @@ def _generate_eqsystem(
         return None
 
 
+def c_SymbolicSys_from_callback(
+    cb, nx, nparams, pre_processors, post_processors, internal_x0_cb
+):
+    from pyneqsys.symbolic import SymbolicSys, Backend
+    import sympy
+
+    be = Backend(sympy.__name__)
+    x = be.real_symarray("x", nx)
+    p = be.real_symarray("p", nparams)
+    exprs = cb(x, p)
+    return SymbolicSys(
+        x,
+        exprs,
+        p,
+        backend=be,
+        pre_processors=pre_processors,
+        post_processors=post_processors,
+        internal_x0_cb=internal_x0_cb,
+    )
+
+
 def c_SymbolicSys_from_NumSys(eqsys: EqSystem, conds):
-    from pyneqsys.symbolic import SymbolicSys
-    import sympy as sp
+    import sympy
 
     ns = NumSysLog(
         eqsys,
-        backend=sp,
+        backend=sympy,
         precipitates=conds,
     )
-    return SymbolicSys.from_callback(
+    return c_SymbolicSys_from_callback(
         ns.f,
         eqsys.ns,
         nparams=eqsys.ns + eqsys.nr,
