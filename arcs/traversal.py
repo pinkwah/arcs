@@ -10,6 +10,7 @@ import itertools as it
 import concurrent.futures
 import platform
 import psutil
+from traceback import print_exception
 
 from datetime import datetime
 import numpy as np
@@ -176,6 +177,12 @@ def _generate_eqsystem(
         return None
 
 
+def c_get_neqsys(eqsys: EqSystem):
+    return eqsys.get_neqsys_chained_conditional(
+        NumSys=(NumSysLog,),
+    )
+
+
 def c_root(
     eqsys: EqSystem,
     init_concs: dict[str, float],
@@ -184,12 +191,8 @@ def c_root(
     params = np.concatenate(
         (init_concs, [float(elem) for elem in eqsys.eq_constants()])
     )
-    neqsys = eqsys.get_neqsys(
-        "chained_conditional",
-        NumSys=NumSysLog,
-        rref_equil=False,
-        rref_preserv=False,
-        precipitates=None,
+    neqsys = c_get_neqsys(
+        eqsys,
     )
     x0 = init_concs
     x, sol = neqsys.solve(x0, params)
@@ -212,7 +215,8 @@ def _equilibrium_concentrations(
             equilibrium_concentrations[eq.substance_names()[i]] = conc
         concs = equilibrium_concentrations
         eq = eq.string()
-    except Exception:
+    except Exception as exc:
+        print_exception(exc)
         concs = equilibrium_concentrations
         eq = None
     return (dict(concs), eq)
