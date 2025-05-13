@@ -248,6 +248,18 @@ def c_as_per_substance_array(eqsys: EqSystem, cont):
     return np.array([cont[k] for k in substance_keys])
 
 
+def c_result_is_sane(eqsys: EqSystem, init_concs, x, rtol=1e-9):
+    sc_upper_bounds = np.array(eqsys.upper_conc_bounds(init_concs))
+    neg_conc, too_much = np.any(x < 0), np.any(x > sc_upper_bounds * (1 + rtol))
+    if neg_conc or too_much:
+        if neg_conc:
+            warnings.warn("Negative concentration")
+        if too_much:
+            warnings.warn("Too much of at least one component")
+        return False
+    return True
+
+
 def c_root(
     eqsys: EqSystem,
     init_concs: dict[str, float],
@@ -263,7 +275,7 @@ def c_root(
     x, sol = neqsys.solve(x0, params)
     if not sol["success"]:
         warnings.warn("Root finding indicated as failed by solver.")
-    sane = eqsys._result_is_sane(init_concs, x)
+    sane = c_result_is_sane(eqsys, init_concs, x)
     return x, sol, sane
 
 
