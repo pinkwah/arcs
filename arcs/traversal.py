@@ -193,31 +193,29 @@ def internal_x0_cb(init_concs, params):
 
 
 def c_SymbolicSys_from_callback(cb, nx, nparams):
-    from pyneqsys.symbolic import SymbolicSys, Backend
-    import sympy
+    from pyneqsys.symbolic import SymbolicSys
+    import sympy as sp
 
-    be = Backend(sympy.__name__)
-    x = be.real_symarray("x", nx)
-    p = be.real_symarray("p", nparams)
+    x = sp.symarray("x", nx)
+    p = sp.symarray("p", nparams)
     exprs = cb(x, p)
     return SymbolicSys(
         x,
         exprs,
         p,
-        backend=be,
+        backend=sp.__name__,
         pre_processors=[pre_processor],
         post_processors=[post_processor],
         internal_x0_cb=internal_x0_cb,
     )
 
 
-def c_SymbolicSys_from_NumSys(eqsys: EqSystem, conds):
+def c_SymbolicSys_from_NumSys(eqsys: EqSystem):
     import sympy
 
     ns = NumSysLog(
         eqsys,
         backend=sympy,
-        precipitates=conds,
     )
     return c_SymbolicSys_from_callback(
         ns.f,
@@ -229,17 +227,32 @@ def c_SymbolicSys_from_NumSys(eqsys: EqSystem, conds):
 def c_get_neqsys_chained_conditional(eqsys: EqSystem):
     from pyneqsys import ConditionalNeqSys
 
-    def factory(conds):
-        return c_SymbolicSys_from_NumSys(eqsys, conds)
+    def factory(_):
+        return c_SymbolicSys_from_NumSys(eqsys)
 
     return ConditionalNeqSys([], factory)
+
+
+def c_as_per_substance_array(eqsys: EqSystem, cont):
+    """Turns a dict into an ordered array
+
+    Parameters
+    ----------
+    cont : array_like or dict
+    dtype : str or numpy.dtype object
+    unit : unit, optional
+    raise_on_unk : bool
+
+    """
+    substance_keys = eqsys.substances.keys()
+    return np.array([cont[k] for k in substance_keys])
 
 
 def c_root(
     eqsys: EqSystem,
     init_concs: dict[str, float],
 ):
-    init_concs = eqsys.as_per_substance_array(init_concs)
+    init_concs = c_as_per_substance_array(eqsys, init_concs)
     params = np.concatenate(
         (init_concs, [float(elem) for elem in eqsys.eq_constants()])
     )
