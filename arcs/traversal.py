@@ -177,9 +177,27 @@ def _generate_eqsystem(
         return None
 
 
-def c_get_neqsys(eqsys: EqSystem):
-    return eqsys.get_neqsys_chained_conditional(
-        NumSys=(NumSysLog,),
+def c_get_neqsys_chained_conditional(eqsys: EqSystem):
+    from pyneqsys import ConditionalNeqSys, ChainedNeqSys
+
+    def factory(conds):
+        return eqsys._SymbolicSys_from_NumSys(
+            NumSysLog, conds, rref_equil=False, rref_preserv=False
+        )
+
+    return ChainedNeqSys(
+        [
+            ConditionalNeqSys(
+                [
+                    (
+                        eqsys._fw_cond_factory(ri),
+                        eqsys._bw_cond_factory(ri, NumSysLog.small),
+                    )
+                    for ri in eqsys.phase_transfer_reaction_idxs()
+                ],
+                factory,
+            )
+        ]
     )
 
 
@@ -191,7 +209,7 @@ def c_root(
     params = np.concatenate(
         (init_concs, [float(elem) for elem in eqsys.eq_constants()])
     )
-    neqsys = c_get_neqsys(
+    neqsys = c_get_neqsys_chained_conditional(
         eqsys,
     )
     x0 = init_concs
