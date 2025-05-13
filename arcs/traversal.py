@@ -248,8 +248,30 @@ def c_as_per_substance_array(eqsys: EqSystem, cont):
     return np.array([cont[k] for k in substance_keys])
 
 
+def c_upper_conc_bounds(eqsys: EqSystem, init_concs):
+    init_concs_arr = eqsys.as_per_substance_array(init_concs)
+    composition_conc = defaultdict(float)
+    for conc, s_obj in zip(init_concs_arr, eqsys.substances.values()):
+        for comp_nr, coeff in s_obj.composition.items():
+            if comp_nr == 0:  # charge may be created (if compensated)
+                continue
+            composition_conc[comp_nr] += coeff * conc
+    bounds = []
+    for s_obj in eqsys.substances.values():
+        choose_from = []
+        for comp_nr, coeff in s_obj.composition.items():
+            if comp_nr == 0:
+                continue
+            choose_from.append(composition_conc[comp_nr] / coeff)
+        if len(choose_from) == 0:
+            bounds.append(float("inf"))
+        else:
+            bounds.append(min(choose_from))
+    return bounds
+
+
 def c_result_is_sane(eqsys: EqSystem, init_concs, x, rtol=1e-9):
-    sc_upper_bounds = np.array(eqsys.upper_conc_bounds(init_concs))
+    sc_upper_bounds = np.array(c_upper_conc_bounds(eqsys, init_concs))
     neg_conc, too_much = np.any(x < 0), np.any(x > sc_upper_bounds * (1 + rtol))
     if neg_conc or too_much:
         if neg_conc:
