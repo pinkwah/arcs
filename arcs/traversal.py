@@ -177,9 +177,22 @@ def _generate_eqsystem(
         return None
 
 
-def c_SymbolicSys_from_callback(
-    cb, nx, nparams, pre_processors, post_processors, internal_x0_cb
-):
+def pre_processor(x, params):
+    return (
+        np.log(np.asarray(x) + NumSysLog.small),  # 10: damping
+        params,
+    )  # zero conc. ~= small
+
+
+def post_processor(x, params):
+    return np.exp(x), params
+
+
+def internal_x0_cb(init_concs, params):
+    return [0.1] * len(init_concs)
+
+
+def c_SymbolicSys_from_callback(cb, nx, nparams):
     from pyneqsys.symbolic import SymbolicSys, Backend
     import sympy
 
@@ -192,8 +205,8 @@ def c_SymbolicSys_from_callback(
         exprs,
         p,
         backend=be,
-        pre_processors=pre_processors,
-        post_processors=post_processors,
+        pre_processors=[pre_processor],
+        post_processors=[post_processor],
         internal_x0_cb=internal_x0_cb,
     )
 
@@ -210,9 +223,6 @@ def c_SymbolicSys_from_NumSys(eqsys: EqSystem, conds):
         ns.f,
         eqsys.ns,
         nparams=eqsys.ns + eqsys.nr,
-        pre_processors=[ns.pre_processor],
-        post_processors=[ns.post_processor],
-        internal_x0_cb=ns.internal_x0_cb,
     )
 
 
