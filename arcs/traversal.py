@@ -18,6 +18,9 @@ import pandas as pd
 from arcs.model import get_reaction_compounds, get_table, get_reactions, Table
 import warnings
 
+# TODO: Refactor
+from chempy._eqsys import NumSysLog
+
 warnings.filterwarnings("ignore")
 
 
@@ -173,13 +176,36 @@ def _generate_eqsystem(
         return None
 
 
+def c_root(
+    eqsys: EqSystem,
+    init_concs: dict[str, float],
+):
+    init_concs = eqsys.as_per_substance_array(init_concs)
+    params = np.concatenate(
+        (init_concs, [float(elem) for elem in eqsys.eq_constants()])
+    )
+    neqsys = eqsys.get_neqsys(
+        "chained_conditional",
+        NumSys=NumSysLog,
+        rref_equil=False,
+        rref_preserv=False,
+        precipitates=None,
+    )
+    x0 = init_concs
+    x, sol = neqsys.solve(x0, params)
+    if not sol["success"]:
+        warnings.warn("Root finding indicated as failed by solver.")
+    sane = eqsys._result_is_sane(init_concs, x)
+    return x, sol, sane
+
+
 def _equilibrium_concentrations(
     concs: dict[str, float], eq: EqSystem
 ) -> tuple[dict[str, float], str]:
     # something is going wrong here...
     equilibrium_concentrations = defaultdict(lambda: 0.0, concs)
     try:
-        root_concs, solution_data, sane = eq.root(equilibrium_concentrations)
+        root_concs, solution_data, sane = c_root(eq, equilibrium_concentrations)
 
         assert solution_data["success"] and sane
         for i, conc in enumerate(root_concs):
