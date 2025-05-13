@@ -177,13 +177,30 @@ def _generate_eqsystem(
         return None
 
 
+def c_SymbolicSys_from_NumSys(eqsys: EqSystem, conds):
+    from pyneqsys.symbolic import SymbolicSys
+    import sympy as sp
+
+    ns = NumSysLog(
+        eqsys,
+        backend=sp,
+        precipitates=conds,
+    )
+    return SymbolicSys.from_callback(
+        ns.f,
+        eqsys.ns,
+        nparams=eqsys.ns + eqsys.nr,
+        pre_processors=[ns.pre_processor],
+        post_processors=[ns.post_processor],
+        internal_x0_cb=ns.internal_x0_cb,
+    )
+
+
 def c_get_neqsys_chained_conditional(eqsys: EqSystem):
     from pyneqsys import ConditionalNeqSys
 
     def factory(conds):
-        return eqsys._SymbolicSys_from_NumSys(
-            NumSysLog, conds, rref_equil=False, rref_preserv=False
-        )
+        return c_SymbolicSys_from_NumSys(eqsys, conds)
 
     return ConditionalNeqSys([], factory)
 
