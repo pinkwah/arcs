@@ -224,15 +224,6 @@ def c_SymbolicSys_from_NumSys(eqsys: EqSystem):
     )
 
 
-def c_get_neqsys_chained_conditional(eqsys: EqSystem):
-    from pyneqsys import ConditionalNeqSys
-
-    def factory(_):
-        return c_SymbolicSys_from_NumSys(eqsys)
-
-    return ConditionalNeqSys([], factory)
-
-
 def c_as_per_substance_array(eqsys: EqSystem, cont):
     """Turns a dict into an ordered array
 
@@ -290,9 +281,7 @@ def c_root(
     params = np.concatenate(
         (init_concs, [float(elem) for elem in eqsys.eq_constants()])
     )
-    neqsys = c_get_neqsys_chained_conditional(
-        eqsys,
-    )
+    neqsys = c_SymbolicSys_from_NumSys(eqsys)
     x0 = init_concs
     x, sol = neqsys.solve(x0, params)
     if not sol["success"]:
