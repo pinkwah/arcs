@@ -6,4 +6,6 @@
     poetry.enable = true;
     poetry.install.enable = true;
   };
+
+  packages = with pkgs; [ libz ];
 }
