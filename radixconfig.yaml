@@ -31,13 +31,6 @@ spec:
         - name: http
           port: 8050
       publicPort: http
-      resources:
-        limits:
-          cpu: "12000m"
-          memory: "16Gi"
-        requests:
-          cpu: "12000m"
-          memory: "16Gi"
       dockerfileName: Dockerfile_dashapp
     - name: api
       network:
